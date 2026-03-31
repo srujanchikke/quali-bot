@@ -1,0 +1,83 @@
+{
+  "request_id": "019d2e7f-6306-7463-a555-7c278604faf3",
+  "api_call": {
+    "method": "POST",
+    "endpoint": "/v2/organizations",
+    "api_flow": "OrganizationCreate",
+    "http_status_code": 400,
+    "error": {
+      "type": "invalid_request",
+      "code": "IR_04",
+      "message": "Missing required param: Authorization"
+    }
+  },
+  "router_log_correlation": {
+    "router_log_path": "/Users/sagar.naik/Documents/Workspace/hyperswitch/report-generater/output/20260327_142130/router_run.log",
+    "matches_in_log": 7,
+    "sample_lines": [
+      {
+        "line_no": 43,
+        "line": "    in router_env::root_span::HTTP request with http.method: POST, http.route: /v2/organizations, http.flavor: 1.1, http.scheme: http, http.host: 127.0.0.1:8080, http.client_ip: 127.0.0.1, http.user_agent: curl/8.7.1, http.target: /v2/organizations, otel.name: POST /v2/organizations, otel.kind: \"server\", request_id: 019d2e7f-6306-7463-a555-7c36037662a8, request_id: \"019d2e7f-6306-7463-a555-7c278604faf3\", trace_id: 00000000000000000000000000000000"
+      },
+      {
+        "line_no": 55,
+        "line": "    in router_env::root_span::HTTP request with http.method: POST, http.route: /v2/organizations, http.flavor: 1.1, http.scheme: http, http.host: 127.0.0.1:8080, http.client_ip: 127.0.0.1, http.user_agent: curl/8.7.1, http.target: /v2/organizations, otel.name: POST /v2/organizations, otel.kind: \"server\", request_id: 019d2e7f-6306-7463-a555-7c36037662a8, request_id: \"019d2e7f-6306-7463-a555-7c278604faf3\", trace_id: 00000000000000000000000000000000"
+      },
+      {
+        "line_no": 62,
+        "line": "    in router_env::root_span::HTTP request with http.method: POST, http.route: /v2/organizations, http.flavor: 1.1, http.scheme: http, http.host: 127.0.0.1:8080, http.client_ip: 127.0.0.1, http.user_agent: curl/8.7.1, http.target: /v2/organizations, otel.name: POST /v2/organizations, otel.kind: \"server\", request_id: 019d2e7f-6306-7463-a555-7c36037662a8, request_id: \"019d2e7f-6306-7463-a555-7c278604faf3\", trace_id: 00000000000000000000000000000000"
+      },
+      {
+        "line_no": 67,
+        "line": "    in router_env::root_span::HTTP request with http.method: POST, http.route: /v2/organizations, http.flavor: 1.1, http.scheme: http, http.host: 127.0.0.1:8080, http.client_ip: 127.0.0.1, http.user_agent: curl/8.7.1, http.target: /v2/organizations, otel.name: POST /v2/organizations, otel.kind: \"server\", request_id: 019d2e7f-6306-7463-a555-7c36037662a8, request_id: \"019d2e7f-6306-7463-a555-7c278604faf3\", trace_id: 00000000000000000000000000000000"
+      },
+      {
+        "line_no": 69,
+        "line": "  2026-03-27T08:53:13.667076Z  INFO router::middleware: request_id: 019d2e7f-6306-7463-a555-7c278604faf3, request_details: [organization_name]: 21"
+      },
+      {
+        "line_no": 72,
+        "line": "    in router_env::root_span::HTTP request with http.method: POST, http.route: /v2/organizations, http.flavor: 1.1, http.scheme: http, http.host: 127.0.0.1:8080, http.client_ip: 127.0.0.1, http.user_agent: curl/8.7.1, http.target: /v2/organizations, otel.name: POST /v2/organizations, otel.kind: \"server\", request_id: 019d2e7f-6306-7463-a555-7c36037662a8, request_id: \"019d2e7f-6306-7463-a555-7c278604faf3\", trace_id: 00000000000000000000000000000000"
+      },
+      {
+        "line_no": 76,
+        "line": "    in router_env::root_span::HTTP request with http.method: POST, http.route: /v2/organizations, http.flavor: 1.1, http.scheme: http, http.host: 127.0.0.1:8080, http.client_ip: 127.0.0.1, http.user_agent: curl/8.7.1, http.target: /v2/organizations, otel.name: POST /v2/organizations, otel.kind: \"server\", request_id: 019d2e7f-6306-7463-a555-7c36037662a8, request_id: \"019d2e7f-6306-7463-a555-7c278604faf3\", trace_id: 00000000000000000000000000000000, exception.message: {\"error\":{\"type\":\"invalid_request\",\"message\":\"Missing required param: Authorization\",\"code\":\"IR_04\"}}, exception.details: BadRequest(ApiError { sub_code: \"IR\", error_identifier: 4, error_message: \"Missing required param: Authorization\", extra: None }), http.status_code: 400, otel.status_code: \"OK\""
+      }
+    ]
+  },
+  "coverage_diff": {
+    "leaf": {
+      "name": "create_organization",
+      "file": "crates/router/src/core/admin.rs",
+      "def_line": 124
+    },
+    "gap_status": "all_probed_lines_zero",
+    "body_span": {
+      "start": 127,
+      "end": 139
+    },
+    "lines_in_span": 13,
+    "lcov_hit_lines": 0,
+    "zero_hit_lines": [
+      127,
+      128,
+      129,
+      130,
+      131,
+      132,
+      133,
+      134,
+      135,
+      136,
+      137,
+      138,
+      139
+    ],
+    "line_coverage_ratio": 0.0
+  },
+  "root_cause_analysis": {
+    "status": "failure_cause_found",
+    "reason": "The request was rejected before leaf execution: Missing required param: Authorization (IR_04).",
+    "why_coverage_is_zero": "Request did not enter leaf due to pre-check/auth failure."
+  }
+}

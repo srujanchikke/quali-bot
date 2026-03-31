@@ -1,0 +1,90 @@
+{
+  "path_flow_model": {
+    "scored_for_coverage": "leaf_function_body_only",
+    "leaf": "Terminal function in the chain with role='target'.",
+    "chain": "Earlier chain steps are reachability context only.",
+    "objective": "Maximize distinct leaf body lines hit at least once."
+  },
+  "pipeline": "diff_only_pl_empty",
+  "pl": [],
+  "run_records": [],
+  "lcov_path": "/Users/sagar.naik/Documents/Workspace/hyperswitch/report-generater/output/20260327_142130/lcov.info",
+  "d": {
+    "kind": "leaf_uncovered_lines",
+    "leaf": {
+      "name": "create_organization",
+      "file": "crates/router/src/core/admin.rs",
+      "def_line": 124
+    },
+    "gaps": [
+      {
+        "function": "create_organization",
+        "file": "crates/router/src/core/admin.rs",
+        "role": "target",
+        "def_line": 124,
+        "body_span": {
+          "start": 127,
+          "end": 139
+        },
+        "lines_in_span": 13,
+        "lines_without_lcov_da": 0,
+        "lcov_probed_lines": 13,
+        "lcov_hit_lines": 0,
+        "line_coverage_ratio": 0.0,
+        "zero_hit_lines": [
+          127,
+          128,
+          129,
+          130,
+          131,
+          132,
+          133,
+          134,
+          135,
+          136,
+          137,
+          138,
+          139
+        ],
+        "status": "all_probed_lines_zero",
+        "note": null
+      }
+    ],
+    "error": null
+  },
+  "context": {
+    "path_flow_model": {
+      "scored_for_coverage": "leaf_function_body_only",
+      "leaf": "Terminal function in the chain with role='target'.",
+      "chain": "Earlier chain steps are reachability context only.",
+      "objective": "Maximize distinct leaf body lines hit at least once."
+    },
+    "leaf": {
+      "name": "create_organization",
+      "file": "crates/router/src/core/admin.rs",
+      "def_line": 124
+    },
+    "reachability": {
+      "endpoint_count": 1,
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/v2/organizations",
+          "handler": "organization_create",
+          "chain": [
+            "organization_create",
+            "create_organization"
+          ]
+        }
+      ]
+    },
+    "chain_artifact_path": "/Users/sagar.naik/Documents/Workspace/hyperswitch/report-generater/create_organization.json"
+  },
+  "audit_trail": null,
+  "LEAF_public": {
+    "name": "create_organization",
+    "file": "crates/router/src/core/admin.rs",
+    "def_line": 124
+  },
+  "CHAIN_ARTIFACT": "/Users/sagar.naik/Documents/Workspace/hyperswitch/report-generater/create_organization.json"
+}

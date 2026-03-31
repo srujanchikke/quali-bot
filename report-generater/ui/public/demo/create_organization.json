@@ -1,0 +1,48 @@
+{
+  "_readme": "Path-flow artifact targeting core admin create_organization (leaf), reached via POST /v2/organizations route wrapper.",
+  "function": "create_organization",
+  "file": "crates/router/src/core/admin.rs",
+  "def_line": 124,
+  "endpoint_count": 1,
+  "flow_count": 1,
+  "endpoints": [
+    {
+      "method": "POST",
+      "path": "/v2/organizations",
+      "handler": "organization_create",
+      "chain": [
+        "organization_create",
+        "create_organization"
+      ]
+    }
+  ],
+  "flows": [
+    {
+      "flow_id": 1,
+      "description": "V2 organization create route to core create_organization function",
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/v2/organizations",
+          "handler": "organization_create"
+        }
+      ],
+      "chain": [
+        {
+          "function": "organization_create",
+          "file": "crates/router/src/routes/admin.rs",
+          "def_line": 32,
+          "role": "context",
+          "source": "pub async fn organization_create(\n    state: web::Data<AppState>,\n    req: HttpRequest,\n    json_payload: web::Json<admin::OrganizationCreateRequest>,\n) -> HttpResponse {\n    let flow = Flow::OrganizationCreate;\n    Box::pin(api::server_wrap(\n        flow,\n        state,\n        &req,\n        json_payload.into_inner(),\n        |state, _, req, _| create_organization(state, req),\n        &auth::V2AdminApiAuth,\n        api_locking::LockAction::NotApplicable,\n    ))\n    .await\n}\n"
+        },
+        {
+          "function": "create_organization",
+          "file": "crates/router/src/core/admin.rs",
+          "def_line": 124,
+          "role": "target",
+          "source": "pub async fn create_organization(\n    state: SessionState,\n    req: api::OrganizationCreateRequest,\n) -> RouterResponse<api::OrganizationResponse> {\n    let db_organization = ForeignFrom::foreign_from(req);\n    state\n        .accounts_store\n        .insert_organization(db_organization)\n        .await\n        .to_duplicate_response(errors::ApiErrorResponse::GenericDuplicateError {\n            message: \"Organization with the given organization_name already exists\".to_string(),\n        })\n        .attach_printable(\"Error when creating organization\")\n        .map(ForeignFrom::foreign_from)\n        .map(service_api::ApplicationResponse::Json)\n}\n"
+        }
+      ]
+    }
+  ]
+}

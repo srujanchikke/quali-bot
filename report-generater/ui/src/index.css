@@ -1,0 +1,116 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Consolas, monospace;
+
+  /* Hyperswitch docs: dark UI */
+  --color-hs-bg: #070a0f;
+  --color-hs-surface: #0f1419;
+  --color-hs-elevated: #151b24;
+  --color-hs-border: #1e2836;
+  --color-hs-muted: #8b9cb3;
+  --color-hs-text: #e8eef7;
+  --color-hs-accent: #3b82f6;
+  --color-hs-accent-glow: rgba(59, 130, 246, 0.35);
+  /* Hyperswitch docs light: primary action blue */
+  --color-hs-brand: #2463eb;
+  --color-hs-brand-hover: #1d4ed8;
+  --color-hs-success: #22c55e;
+  --color-hs-danger: #f87171;
+  --color-hs-warn: #fbbf24;
+}
+
+/* App theme tokens (used with arbitrary values: bg-[var(--app-bg)] etc.) */
+:root[data-theme='dark'] {
+  --app-accent: #3b82f6;
+  --app-accent-hover: #2563eb;
+  --app-accent-muted: rgba(59, 130, 246, 0.15);
+  --app-accent-soft: rgba(59, 130, 246, 0.12);
+  --app-accent-glow: rgba(59, 130, 246, 0.35);
+  --app-bg: #070a0f;
+  --app-surface: #0f1419;
+  --app-elevated: #151b24;
+  --app-border: #1e2836;
+  --app-text: #f1f5f9;
+  --app-text-secondary: #cbd5e1;
+  --app-muted: #94a3b8;
+  --app-subtle: #64748b;
+  --app-flow-bg: #070a0f;
+  --app-flow-dot: #1e2836;
+  --app-card: #151b24;
+  --app-code-bg: #0b0f14;
+  --app-header-bg: rgba(7, 10, 15, 0.92);
+  --app-placeholder-bg: #0a0e14;
+  --app-http-badge-bg: rgba(255, 255, 255, 0.05);
+  --app-handle-bg: #0f1419;
+  --app-fn-icon-bg: rgba(100, 116, 139, 0.2);
+  --app-edge-muted: rgba(148, 163, 184, 0.35);
+  --app-error-fg: #fecaca;
+  --app-error-code: #fca5a5;
+  --app-error-border: rgba(239, 68, 68, 0.35);
+  --app-node-shadow: 0 0 0 1px rgba(59, 130, 246, 0.15),
+    0 20px 50px -20px rgba(0, 0, 0, 0.6);
+}
+
+/* Hyperswitch docs light: white surfaces, #2463EB actions, soft borders */
+:root[data-theme='light'] {
+  --app-accent: #2463eb;
+  --app-accent-hover: #1d4ed8;
+  --app-accent-muted: rgba(36, 99, 235, 0.12);
+  --app-accent-soft: rgba(36, 99, 235, 0.08);
+  --app-accent-glow: rgba(36, 99, 235, 0.22);
+  --app-bg: #ffffff;
+  --app-surface: #ffffff;
+  --app-elevated: #f8f9fb;
+  --app-border: #e8eaed;
+  --app-text: #111827;
+  --app-text-secondary: #4b5563;
+  --app-muted: #6b7280;
+  --app-subtle: #9ca3af;
+  --app-flow-bg: #fafbfc;
+  --app-flow-dot: #d1d5db;
+  --app-card: #ffffff;
+  --app-code-bg: #f3f4f6;
+  --app-header-bg: rgba(255, 255, 255, 0.94);
+  --app-placeholder-bg: #f9fafb;
+  --app-http-badge-bg: rgba(17, 24, 39, 0.06);
+  --app-handle-bg: #ffffff;
+  --app-fn-icon-bg: rgba(107, 114, 128, 0.12);
+  --app-edge-muted: rgba(156, 163, 175, 0.55);
+  --app-error-fg: #991b1b;
+  --app-error-code: #b91c1c;
+  --app-error-border: rgba(239, 68, 68, 0.35);
+  --app-node-shadow: 0 1px 2px rgba(17, 24, 39, 0.06),
+    0 12px 32px -8px rgba(17, 24, 39, 0.08);
+}
+
+@layer base {
+  html {
+    @apply antialiased;
+  }
+  html[data-theme='dark'] {
+    color-scheme: dark;
+  }
+  html[data-theme='light'] {
+    color-scheme: light;
+  }
+  body {
+    @apply m-0 min-h-dvh;
+    font-family: var(--font-sans);
+    background: var(--app-bg);
+    color: var(--app-text);
+  }
+  #root {
+    @apply min-h-dvh w-full;
+  }
+}
+
+/* React Flow: dot grid uses Background color prop from component; canvas fill */
+.react-flow {
+  background: var(--app-flow-bg) !important;
+}
+.react-flow__edge-path {
+  stroke: var(--app-accent);
+  stroke-width: 2px;
+}

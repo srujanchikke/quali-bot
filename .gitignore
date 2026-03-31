@@ -14,6 +14,7 @@ venv/
 # Secrets & configs
 .env
 *.env
+report-generater/local_test_env.sh
 *.key
 *.pem
 secrets.json
@@ -72,6 +73,9 @@ yarn-error.log*
 *.dylib
 bin/
 
+# Large local dependency/output folders
+testing_agent/scip/
+
 # Rust (for scip bindings)
 target/
 
@@ -85,3 +89,9 @@ target/
 *.temp
 tmp/
 temp/
+
+# Generated reports / coverage output
+report-generater/output/
+report-generater/ui/dist/
+*.lcov
+lcov.info
