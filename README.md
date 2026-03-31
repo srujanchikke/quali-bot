@@ -212,6 +212,47 @@ SKIP_BUILD=0 \
 bash report-generater/run_organization_create_report.sh
 ```
 
+### Run the UI
+
+The report viewer UI lives in `report-generater/ui` and is built with React, TypeScript, and Vite.
+
+Install dependencies:
+
+```bash
+cd report-generater/ui
+npm install
+```
+
+Start the local development server:
+
+```bash
+cd report-generater/ui
+npm run dev
+```
+
+Vite will print a local URL in the terminal, usually `http://localhost:5173`.
+
+Build the UI for production:
+
+```bash
+cd report-generater/ui
+npm run build
+```
+
+Preview the production build locally:
+
+```bash
+cd report-generater/ui
+npm run preview
+```
+
+Run the UI linter:
+
+```bash
+cd report-generater/ui
+npm run lint
+```
+
 ## Important Notes
 
 - `report-generater/output/` contains generated runtime artifacts and can become very large.

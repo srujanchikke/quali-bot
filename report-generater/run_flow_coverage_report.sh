@@ -40,6 +40,7 @@ RUN_ID="${RUN_ID:-$(date +%Y%m%d_%H%M%S)}"
 OUT_DIR="${OUT_BASE}/${RUN_ID}"
 PROFRAW_DIR="${OUT_DIR}/profraw"
 ROUTER_LOG="${OUT_DIR}/router_run.log"
+TERMINAL_LOG="${OUT_DIR}/terminal_output.log"
 LCOV_FILE="${OUT_DIR}/lcov.info"
 HTML_DIR="${OUT_DIR}/coverage-html"
 DIFF_JSON="${OUT_DIR}/coverage_run_report.json"
@@ -49,6 +50,10 @@ FLOW_RUN_LOG="${OUT_DIR}/flow_pipeline.log"
 CYPRESS_PARSED_JSON="${OUT_DIR}/cypress_parsed.json"
 
 mkdir -p "${OUT_DIR}" "${PROFRAW_DIR}"
+
+# Persist the full script stdout/stderr so the UI can show the same terminal stream.
+: > "${TERMINAL_LOG}"
+exec > >(tee -a "${TERMINAL_LOG}") 2>&1
 
 # ============================================================================
 # Helper functions
@@ -448,6 +453,7 @@ Target leaf: ${TARGET_LEAF}
 Request IDs: ${REQUEST_IDS:-none}
 
 Artifacts:
+- Terminal log: ${TERMINAL_LOG}
 - Router log: ${ROUTER_LOG}
 - Flow pipeline log: ${FLOW_RUN_LOG}
 - Cypress parsed: ${CYPRESS_PARSED_JSON}

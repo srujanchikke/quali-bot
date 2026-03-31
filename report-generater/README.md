@@ -62,6 +62,7 @@ Each run writes under:
 
 | File | Description |
 |------|-------------|
+| `terminal_output.log` | Full script terminal stdout/stderr for the run |
 | `router_run.log` | Router stdout/stderr |
 | `flow_pipeline.log` | Cypress test output |
 | `cypress_parsed.json` | Parsed request IDs and test results |

@@ -10,6 +10,11 @@ const ALLOWED_FILES = new Set([
   'path_flow.json',
   'run_summary.txt',
   'line_hits.txt',
+  'terminal_output.log',
+  'flow_pipeline.log',
+  'router_run.log',
+  'cypress_parsed.json',
+  'lcov.info',
 ])
 
 function listRuns(outputRoot: string): string[] {

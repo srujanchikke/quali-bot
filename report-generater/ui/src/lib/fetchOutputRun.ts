@@ -6,6 +6,12 @@ export type RunsListResponse = { runs: string[] }
 const OPTIONAL_FILES = [
   'create_organization.json',
   'path_flow.json',
+  'run_summary.txt',
+  'terminal_output.log',
+  'flow_pipeline.log',
+  'router_run.log',
+  'cypress_parsed.json',
+  'lcov.info',
 ] as const
 
 /**

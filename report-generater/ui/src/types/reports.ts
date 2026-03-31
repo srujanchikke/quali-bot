@@ -2,6 +2,10 @@ export type ApiError = {
   type?: string
   code?: string
   message?: string
+  failed_tests?: string[]
+  errors?: string[]
+  passing_count?: number
+  failing_count?: number
 }
 
 export type FinalReport = {
@@ -17,6 +21,13 @@ export type FinalReport = {
     router_log_path?: string
     matches_in_log?: number
     sample_lines?: { line_no: number; line: string }[]
+  }
+  test_results?: {
+    cypress_passed?: boolean
+    passing_count?: number
+    failing_count?: number
+    total_tests?: number
+    duration_ms?: number
   }
   coverage_diff?: {
     leaf?: { name?: string; file?: string; def_line?: number }
