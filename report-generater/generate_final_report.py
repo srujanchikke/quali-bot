@@ -89,6 +89,82 @@ def parse_cypress_errors(cypress_parsed: dict[str, Any]) -> dict[str, Any] | Non
     }
 
 
+def summarize_cypress_failure(cypress_parsed: dict[str, Any]) -> tuple[str, list[str]]:
+    """Produce a more useful RCA summary from parsed Cypress failures."""
+    errors = [str(err) for err in (cypress_parsed.get("errors") or []) if err]
+    failed_tests = [str(name) for name in (cypress_parsed.get("failed_test_names") or []) if name]
+    lowered_errors = [err.lower() for err in errors]
+    lowered_tests = [name.lower() for name in failed_tests]
+    findings: list[str] = []
+
+    if any("/accounts" in err or "unrecognized request url" in err for err in lowered_errors):
+        findings.append(
+            "Account setup is failing because the backend returns \"Unrecognized request URL\" for /accounts."
+        )
+    if any("api key create call failed" in err for err in lowered_errors):
+        findings.append(
+            "API key creation is failing after account setup, so test setup does not complete."
+        )
+    if any("connector create call failed" in err for err in lowered_errors) or any(
+        "connector account create" in name for name in lowered_tests
+    ):
+        findings.append(
+            "Connector account creation is also failing, so the connector is not ready for the payment flow."
+        )
+    if any("client_secret" in err for err in lowered_errors):
+        findings.append(
+            "Payment steps later fail because the responses do not include the expected client secret."
+        )
+    if any("expecting valid response" in err for err in lowered_errors):
+        findings.append(
+            "Some Cypress checks are receiving error responses where a successful API response was expected."
+        )
+
+    unique_findings: list[str] = []
+    for item in findings:
+        if item not in unique_findings:
+            unique_findings.append(item)
+
+    if unique_findings:
+        return (" ".join(unique_findings), unique_findings)
+
+    failing = cypress_parsed.get("failing_count", 0)
+    if errors:
+        return (
+            f"Cypress reported {failing} failing test(s). The first captured error was: {errors[0]}",
+            errors[:3],
+        )
+    if failed_tests:
+        return (
+            f"Cypress reported {failing} failing test(s), including: {', '.join(failed_tests[:3])}.",
+            failed_tests[:3],
+        )
+    return (
+        f"Cypress reported {failing} failing test(s), but no detailed failure text was captured.",
+        [],
+    )
+
+
+def explain_missing_coverage(cov: dict[str, Any], log_err_obj: dict[str, Any] | None) -> str | None:
+    """Explain why leaf coverage is unavailable or zero for the run."""
+    d = cov.get("d", {})
+    error = d.get("error")
+    kind = d.get("kind")
+
+    if kind == "coverage_unavailable":
+        reason = f"Coverage data could not be generated for this run: {error or 'unknown coverage error'}."
+        if log_err_obj:
+            return reason + " The request also appears to have failed before the target leaf could be exercised."
+        return reason
+
+    gaps = d.get("gaps") or []
+    gap = gaps[0] if gaps else {}
+    zero_lines = gap.get("zero_hit_lines") or []
+    if zero_lines and log_err_obj:
+        return "The request did not reach the target leaf body because it failed earlier in the flow."
+    return None
+
+
 def extract_flow_info(flow_json: dict[str, Any]) -> dict[str, Any]:
     """Extract API call info from flow JSON document."""
     # Get endpoint info
@@ -157,19 +233,22 @@ def main() -> int:
     # Priority: log error > cypress error > coverage status
     err_obj = log_err_obj or cypress_err_obj
     
+    coverage_reason = explain_missing_coverage(cov, log_err_obj)
+
     if log_err_obj:
         rca_status = "failure_cause_found"
         rca_reason = f"The request was rejected before leaf execution: {log_err_obj.get('message')} ({log_err_obj.get('code')})."
     elif cypress_err_obj:
         rca_status = "test_failure"
-        failed = cypress_err_obj.get("failing_count", 0)
-        rca_reason = f"Cypress test failed: {failed} test(s) failed. Check cypress output for details."
+        rca_reason, contributing = summarize_cypress_failure(cypress_parsed)
     elif gap.get("status") == "all_probed_lines_hit":
         rca_status = "not_applicable_for_this_run"
         rca_reason = "Request succeeded and all probed leaf lines were hit."
+        contributing = []
     else:
         rca_status = "investigate_more"
         rca_reason = "Coverage gap exists but no explicit error was found for this request id in matched log lines."
+        contributing = []
 
     # Build final report
     final_report: dict[str, Any] = {
@@ -211,11 +290,8 @@ def main() -> int:
         "root_cause_analysis": {
             "status": rca_status,
             "reason": rca_reason,
-            "why_coverage_is_zero": (
-                "Request did not enter leaf due to pre-check/auth failure."
-                if zero_lines and log_err_obj
-                else None
-            ),
+            "why_coverage_is_zero": coverage_reason,
+            "contributing_failures": contributing if cypress_err_obj else [],
         },
     }
 

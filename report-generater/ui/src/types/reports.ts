@@ -42,6 +42,7 @@ export type FinalReport = {
     status?: string
     reason?: string
     why_coverage_is_zero?: string
+    contributing_failures?: string[]
   }
 }
 

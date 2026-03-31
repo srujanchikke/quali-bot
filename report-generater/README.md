@@ -12,6 +12,24 @@ Runs a full cypress test flow via `testing_agent/run_flow_pipeline.py` and gener
 bash report-generater/run_flow_coverage_report.sh
 ```
 
+#### Build the router with LLVM coverage first
+
+Before running the flow coverage report, build the Hyperswitch router with LLVM
+coverage instrumentation enabled:
+
+```bash
+cd "$HYPERSWITCH_ROOT"
+RUSTFLAGS="-Cinstrument-coverage" cargo build -p router --bin router
+```
+
+Notes:
+
+- Use the default v1 router build for Cypress compatibility.
+- Do not use a v2-only build for this workflow, because the Cypress setup flow uses
+  v1 admin routes such as `/accounts`.
+- If the router is not built with `-Cinstrument-coverage`, no `.profraw` files will
+  be generated, and the report will show coverage as unavailable.
+
 This:
 1. Starts hyperswitch router with LLVM coverage from `~/hyperswitch`
 2. Runs `testing_agent/run_flow_pipeline.py` with the flow JSON

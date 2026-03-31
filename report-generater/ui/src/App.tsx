@@ -722,7 +722,9 @@ export default function App() {
                           </>
                         ) : (
                           <p className="mt-3 text-xs text-[var(--app-muted)]">
-                            No embedded source is available for the target function in this run.
+                            {run.coverageReport?.d?.kind === 'coverage_unavailable'
+                              ? `Coverage for the target function is unavailable for this run because ${String(run.coverageReport.d.error ?? 'no LLVM profile data was generated')}.`
+                              : 'No embedded source is available for the target function in this run.'}
                           </p>
                         )}
                       </div>
