@@ -119,14 +119,15 @@ def _parse_file(abs_path: str):
 
 # ── Layer 1: Trait Impl Extraction ────────────────────────────────────────────
 
-def _extract_impl_methods(impl_body: TSNode, src: bytes) -> list[str]:
-    """Return list of method names defined inside an impl body."""
+def _extract_impl_methods(impl_body: TSNode, src: bytes) -> list[tuple[str, int]]:
+    """Return list of (method_name, def_line_1indexed) for each fn in an impl body."""
     methods = []
     for child in impl_body.named_children:
         if child.type == "function_item":
             name_node = child.child_by_field_name("name")
             if name_node:
-                methods.append(_ts_text(name_node, src))
+                def_line = child.start_point[0] + 1   # 1-indexed to match build_callgraph.py
+                methods.append((_ts_text(name_node, src), def_line))
     return methods
 
 
@@ -226,16 +227,19 @@ def _extract_generic_calls_from_file(abs_path: str) -> list[dict]:
                 type_args = fn_node.child_by_field_name("type_arguments")
                 if inner_fn and type_args:
                     callee = _short_name(_ts_text(inner_fn, src))
-                    # Grab each type argument; keep only simple identifiers
+                    # Take only the FIRST concrete (non-wildcard) type argument.
+                    # Emitting all args causes the last Neo4j write to win, which
+                    # may be a Rust `_` wildcard overwriting the real operation type.
                     for child in type_args.named_children:
                         if child.type in ("type_identifier", "scoped_type_identifier"):
                             type_name = _short_name(_ts_text(child, src))
-                            if type_name:
+                            if type_name and type_name != "_":
                                 calls.append({
                                     "callee":     callee,
                                     "type_param": type_name,
                                     "line":       fn_node.start_point[0] + 1,
                                 })
+                                break  # first concrete type arg is the operation type T
 
             # Pattern 2: first arg is a struct literal  fn(TypeName { ... }, ...)
             if fn_node and fn_node.type in ("identifier", "scoped_identifier", "field_expression"):
@@ -274,6 +278,9 @@ def collect_all_generic_calls(src_root: str) -> dict[str, list[dict]]:
     crates_path = src_path / "crates"
     search_root = crates_path if crates_path.is_dir() else src_path
 
+    alias_map = _build_type_alias_map(src_root)
+    print(f"  {len(alias_map)} type aliases resolved", file=sys.stderr)
+
     for dirpath, dirnames, filenames in os.walk(search_root):
         dirnames[:] = [d for d in dirnames if d not in _SKIP_DIRS]
         for fname in filenames:
@@ -282,7 +289,7 @@ def collect_all_generic_calls(src_root: str) -> dict[str, list[dict]]:
             abs_path = os.path.join(dirpath, fname)
             calls = _extract_generic_calls_from_file(abs_path)
             # Merge variable-binding inferred calls (no duplicates by line)
-            vb_calls = _extract_variable_binding_calls_from_file(abs_path)
+            vb_calls = _extract_variable_binding_calls_from_file(abs_path, type_alias_map=alias_map)
             if vb_calls:
                 existing_lines = {c["line"] for c in calls}
                 for c in vb_calls:
@@ -311,13 +318,16 @@ def collect_variable_binding_calls(src_root: str) -> dict[str, list[dict]]:
     crates_path = src_path / "crates"
     search_root = crates_path if crates_path.is_dir() else src_path
 
+    alias_map = _build_type_alias_map(src_root)
+    print(f"  {len(alias_map)} type aliases resolved", file=sys.stderr)
+
     for dirpath, dirnames, filenames in os.walk(search_root):
         dirnames[:] = [d for d in dirnames if d not in _SKIP_DIRS]
         for fname in filenames:
             if not fname.endswith(".rs"):
                 continue
             abs_path = os.path.join(dirpath, fname)
-            calls = _extract_variable_binding_calls_from_file(abs_path)
+            calls = _extract_variable_binding_calls_from_file(abs_path, type_alias_map=alias_map)
             if calls:
                 rel_path = os.path.relpath(abs_path, src_root)
                 result[rel_path] = calls
@@ -327,7 +337,73 @@ def collect_variable_binding_calls(src_root: str) -> dict[str, list[dict]]:
     return result
 
 
-def _extract_variable_binding_calls_from_file(abs_path: str) -> list[dict]:
+def _build_type_alias_map(src_root: str) -> dict[str, str]:
+    """
+    Scan every .rs file for type alias definitions of the form:
+        type Alias = Generic<FirstTypeArg, ...>;
+        type Alias = dyn Generic<FirstTypeArg, ...>;
+
+    Returns {alias_name: first_concrete_type_arg}.
+
+    Example:
+        pub type UasPreAuthenticationRouterData =
+            RouterData<PreAuthenticate, UasPreAuthenticationRequestData, ...>;
+        → {"UasPreAuthenticationRouterData": "PreAuthenticate"}
+
+    This lets _collect_bindings resolve plain type_identifier annotations:
+        let router_data: UasPreAuthenticationRouterData = ...
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                         type_identifier (not generic_type) → look up in alias map
+                         → concrete_type = "PreAuthenticate"
+    """
+    alias_map: dict[str, str] = {}
+    src_path = Path(src_root)
+    crates_path = src_path / "crates"
+    search_root = crates_path if crates_path.is_dir() else src_path
+
+    def _extract_from_file(abs_path: str):
+        tree, src = _parse_file(abs_path)
+        if tree is None:
+            return
+        def _walk(node: TSNode):
+            if node.type == "type_item":
+                name_node = node.child_by_field_name("name")
+                type_node = node.child_by_field_name("type")
+                if name_node and type_node:
+                    inner = type_node
+                    # Unwrap `dyn Trait<T>` → `Trait<T>`
+                    if inner.type == "dynamic_type":
+                        inner = next(
+                            (c for c in inner.named_children
+                             if c.type == "generic_type"), None,
+                        ) or inner
+                    if inner is not None and inner.type == "generic_type":
+                        args_node = inner.child_by_field_name("type_arguments")
+                        if args_node:
+                            first_arg = next(
+                                (c for c in args_node.named_children
+                                 if c.type in ("type_identifier", "scoped_type_identifier")),
+                                None,
+                            )
+                            if first_arg:
+                                candidate = _short_name(_ts_text(first_arg, src))
+                                if len(candidate) > 2 and candidate[0].isupper():
+                                    alias_map[_ts_text(name_node, src)] = candidate
+            for child in node.named_children:
+                _walk(child)
+        _walk(tree.root_node)
+
+    for dirpath, dirnames, filenames in os.walk(search_root):
+        dirnames[:] = [d for d in dirnames if d not in _SKIP_DIRS]
+        for fname in filenames:
+            if fname.endswith(".rs"):
+                _extract_from_file(os.path.join(dirpath, fname))
+
+    print(f"  {len(alias_map):,} type aliases resolved (alias → first generic arg)", file=sys.stderr)
+    return alias_map
+
+
+def _extract_variable_binding_calls_from_file(abs_path: str, type_alias_map: dict | None = None) -> list[dict]:
     """
     Find variable-binding generic call sites in one file.
 
@@ -336,6 +412,8 @@ def _extract_variable_binding_calls_from_file(abs_path: str) -> list[dict]:
       - If value is struct_expression → extract name field, short_name it
       - If value is call_expression and function text contains '::' →
         extract short_name(fn_text.rsplit('::', 1)[0])
+      - If type annotation is generic_type → extract first type arg
+      - If type annotation is type_identifier → look up in type_alias_map
 
     Then walks call_expression nodes: if the first argument is an identifier
     that is in bindings, emits {callee, type_param, line}.
@@ -379,34 +457,97 @@ def _extract_variable_binding_calls_from_file(abs_path: str) -> list[dict]:
                         if "::" in fn_text:
                             concrete_type = _short_name(fn_text.rsplit("::", 1)[0])
 
+                # Fallback: read explicit type annotation on the let binding.
+                # Handles patterns like:
+                #   let router_data: RouterData<IncrementalAuthorization, ...> = ...
+                # Extract the first generic type argument as the operation type T.
+                if concrete_type is None:
+                    type_ann_node = node.child_by_field_name("type")
+                    if type_ann_node:
+                        # Unwrap reference: &RouterData<T> → RouterData<T>
+                        inner = type_ann_node
+                        if inner.type == "reference_type":
+                            inner = next(
+                                (c for c in inner.named_children if c.type == "generic_type"),
+                                None,
+                            ) or inner
+                        if inner is not None and inner.type == "generic_type":
+                            args_node = inner.child_by_field_name("type_arguments")
+                            if args_node:
+                                first_arg = next(
+                                    (c for c in args_node.named_children
+                                     if c.type in ("type_identifier", "scoped_type_identifier")),
+                                    None,
+                                )
+                                if first_arg:
+                                    candidate = _short_name(_ts_text(first_arg, src))
+                                    # Only use concrete type names (multi-char CamelCase).
+                                    # Skip bare generic params like F, T, Req (≤2 chars or
+                                    # single uppercase used as type-variable convention).
+                                    # _short_name strips module prefix (api::PoFulfill → PoFulfill)
+                                    # so the isupper() check always sees just the type name.
+                                    if len(candidate) > 2 and candidate[0].isupper():
+                                        concrete_type = candidate
+                        # Type alias resolution: let router_data: UasPreAuthenticationRouterData = ...
+                        #   type_ann is a plain type_identifier (not generic_type), but the
+                        #   alias expands to RouterData<PreAuthenticate, ...> — look it up.
+                        elif (inner is not None
+                              and inner.type in ("type_identifier", "scoped_type_identifier")
+                              and type_alias_map):
+                            alias_name = _short_name(_ts_text(inner, src))
+                            resolved = type_alias_map.get(alias_name)
+                            if resolved:
+                                concrete_type = resolved
+
                 if concrete_type and var_name:
                     bindings[var_name] = concrete_type
-                return  # don't recurse into let_declaration children
+                # Still recurse into the value expression — it may contain nested
+                # match arms / blocks with their own inner let bindings, e.g.:
+                #   let resp = match cond { true => { let ci: Type = ...; call(ci) } }
+                if val_node is not None:
+                    _collect_bindings(val_node)
+                return  # pattern/type nodes never contain nested let declarations
 
             for child in node.named_children:
                 _collect_bindings(child)
 
         _collect_bindings(body)
 
-        # Pass 2: walk call_expressions — if first arg is a bound identifier, emit
+        # Pass 2: walk call_expressions — if ANY arg is a bound identifier, emit.
+        # Checks all argument positions (not just first) so patterns like:
+        #   execute_connector_processing_step(state, connector_integration, router_data)
+        # are captured even when the typed variable is arg 2 or 3.
+        # If multiple bound args carry different types, skip (ambiguous).
         def _collect_calls(node: TSNode):
             if node.type == "call_expression":
                 fn_node_call = node.child_by_field_name("function")
                 args_node = node.child_by_field_name("arguments")
                 if fn_node_call and args_node:
                     callee = _short_name(_ts_text(fn_node_call, src))
-                    first_arg = next(
-                        (c for c in args_node.named_children if c.type != "comment"),
-                        None,
-                    )
-                    if first_arg and first_arg.type == "identifier":
-                        ident = _ts_text(first_arg, src)
-                        if ident in bindings:
-                            calls.append({
-                                "callee":     callee,
-                                "type_param": bindings[ident],
-                                "line":       node.start_point[0] + 1,
-                            })
+                    # Collect type_params from all bound identifier arguments
+                    found_types: list[str] = []
+                    for arg in args_node.named_children:
+                        if arg.type == "comment":
+                            continue
+                        # Strip reference operators: &x, &mut x → x
+                        inner_arg = arg
+                        if arg.type in ("reference_expression", "unary_expression"):
+                            inner_arg = next(
+                                (c for c in arg.named_children if c.type == "identifier"),
+                                None,
+                            ) or arg
+                        if inner_arg.type == "identifier":
+                            ident = _ts_text(inner_arg, src)
+                            if ident in bindings:
+                                found_types.append(bindings[ident])
+                    # Only emit when all bound args agree on a single concrete type
+                    unique = list(dict.fromkeys(found_types))  # deduplicate, preserve order
+                    if len(unique) == 1:
+                        calls.append({
+                            "callee":     callee,
+                            "type_param": unique[0],
+                            "line":       node.start_point[0] + 1,
+                        })
 
             for child in node.named_children:
                 _collect_calls(child)
@@ -434,69 +575,154 @@ def _batches(lst, size=BATCH_SIZE):
 
 def write_impl_annotations(impl_records: list[dict], driver):
     """
-    For each (trait, type, method) triple:
-      1. Annotate the concrete :Fn node (name == "type#trait#method") with
-         impl_trait and impl_type properties.
+    For each (trait, type, method, def_line) quad:
+      0. CREATE the :Fn node if SCIP missed it (happens for every specialization
+         of a generic trait beyond the first — e.g. all ConnectorIntegration<X>
+         impls beyond the one SCIP indexed).  Node is created with a synthetic
+         symbol keyed by file+def_line so it is unique and stable across re-runs.
+      1. Annotate the concrete :Fn node matched by (file, def_line) — not by name,
+         which is ambiguous when the same method appears in multiple specializations.
       2. Create [:IMPLEMENTS] edge from the concrete :Fn to the abstract :Fn
-         (name == "trait#method") if both exist.
+         (matched by name == "trait#method").
     """
-    # Flatten to individual (trait, type, method) tuples — now with trait_args + spec_key
+    # Flatten to individual (trait, type, method, def_line, file) quads
     triples = []
     for r in impl_records:
         trait_args = r.get("trait_args", ())
         args_str   = ",".join(trait_args)
-        for method in r["methods"]:
-            spec_key = _make_specialization_key(r["trait_name"], r["type_name"], trait_args, method)
+        file_      = r.get("file", "")
+        for method_name, def_line in r["methods"]:
+            spec_key = _make_specialization_key(r["trait_name"], r["type_name"], trait_args, method_name)
+            # Name encodes the full specialization — unique per impl block
+            args_tag      = f"<{args_str}>" if args_str else ""
+            concrete_name = f"{r['type_name']}#{r['trait_name']}{args_tag}#{method_name}"
             triples.append({
-                "trait_name":    r["trait_name"],
-                "trait_args_str": args_str,         # comma-joined for Neo4j string storage
-                "type_name":     r["type_name"],
-                "method_name":   method,
-                "concrete_name": f"{r['type_name']}#{r['trait_name']}#{method}",
-                "abstract_name": f"{r['trait_name']}#{method}",
-                "spec_key":      spec_key,
+                "trait_name":     r["trait_name"],
+                "trait_args_str": args_str,
+                "type_name":      r["type_name"],
+                "method_name":    method_name,
+                "def_line":       def_line,
+                "file":           file_,
+                "concrete_name":  concrete_name,
+                "abstract_name":  f"{r['trait_name']}#{method_name}",
+                "spec_key":       spec_key,
+                # Synthetic symbol — stable key for nodes SCIP didn't create
+                "synthetic_sym":  f"synthetic://{file_}::{def_line}",
             })
 
     print(f"  {len(triples):,} (trait, type, method) triples to annotate", file=sys.stderr)
 
-    # Step A: annotate concrete :Fn nodes with full specialization properties
+    # ── Ensure a (file, def_line) index exists for fast matching ──────────────
+    with driver.session() as s:
+        s.run("CREATE INDEX fn_def_line IF NOT EXISTS FOR (n:Fn) ON (n.def_line)")
+
+    # ── Reset existing annotations (idempotent re-runs) ───────────────────────
+    with driver.session() as s:
+        s.run("MATCH (fn:Fn) REMOVE fn.impl_trait, fn.impl_type, fn.impl_trait_args, fn.impl_method, fn.impl_spec_key")
+        s.run("MATCH ()-[r:IMPLEMENTS]->() DELETE r")
+
+    # ── Step 0: Create missing :Fn nodes SCIP did not index ───────────────────
+    # MERGE on synthetic_sym so re-runs are idempotent.
+    # Only nodes where SCIP already created a node at (file, def_line) will be
+    # skipped — they keep their SCIP symbol; the ON CREATE branch is a no-op.
+    q_create = """
+        UNWIND $batch AS row
+        MERGE (fn:Fn {symbol: row.synthetic_sym})
+        ON CREATE SET fn.name     = row.concrete_name,
+                      fn.file     = row.file,
+                      fn.def_line = row.def_line
+    """
+    # But only create synthetic nodes when no SCIP node already exists at that location.
+    # We first collect (file, def_line) pairs that already have a node, then skip those.
+    existing_locations: set = set()
+    with driver.session() as s:
+        rows = s.run("""
+            MATCH (fn:Fn)
+            WHERE NOT fn.symbol STARTS WITH 'synthetic://'
+            RETURN fn.file AS file, fn.def_line AS def_line
+        """).data()
+        for row in rows:
+            if row["file"] and row["def_line"] is not None:
+                existing_locations.add((row["file"], row["def_line"]))
+
+    missing = [t for t in triples if (t["file"], t["def_line"]) not in existing_locations]
+    print(f"  {len(missing):,} nodes missing from SCIP — will be created", file=sys.stderr)
+
+    created = 0
+    for batch in _batches(missing):
+        with driver.session() as s:
+            result = s.run(q_create, batch=batch)
+            created += result.consume().counters.nodes_created
+    print(f"  {created:,} new :Fn nodes created", file=sys.stderr)
+
+    # ── Step A: Annotate concrete :Fn nodes matched by (file, def_line) ───────
     q_annotate = """
         UNWIND $batch AS row
         MATCH (fn:Fn)
-        WHERE fn.name = row.concrete_name
+        WHERE fn.file = row.file AND fn.def_line = row.def_line
         SET fn.impl_trait      = row.trait_name,
             fn.impl_type       = row.type_name,
             fn.impl_trait_args = row.trait_args_str,
             fn.impl_method     = row.method_name,
             fn.impl_spec_key   = row.spec_key
     """
-    # Step B: create [:IMPLEMENTS] edges with spec metadata on the edge too
+    annotated = 0
+    for batch in _batches(triples):
+        with driver.session() as s:
+            result = s.run(q_annotate, batch=batch)
+            annotated += result.consume().counters.properties_set // 5
+    print(f"  {annotated:,} :Fn nodes annotated", file=sys.stderr)
+
+    # ── Step B: Create [:IMPLEMENTS] edges ────────────────────────────────────
+    # Concrete node matched by (file, def_line); abstract node matched by symbol.
+    # When multiple abstract nodes share the same name (trait defined in multiple
+    # modules, e.g. GetTracker in payments/operations.rs AND fraud_check/operation.rs),
+    # pick the one whose file shares the longest common path prefix with the concrete
+    # node's file — computed in Python using os.path.commonprefix.
+
+    # Fetch all abstract :Fn candidate nodes keyed by name
+    abstract_by_name: dict[str, list[dict]] = {}
+    with driver.session() as s:
+        abstract_names = list({t["abstract_name"] for t in triples})
+        rows = s.run("""
+            UNWIND $names AS n
+            MATCH (fn:Fn {name: n})
+            RETURN fn.name AS name, fn.symbol AS sym, fn.file AS file
+        """, names=abstract_names).data()
+        for r in rows:
+            abstract_by_name.setdefault(r["name"], []).append(r)
+
+    def _best_abstract_sym(concrete_file: str, abstract_name: str) -> str | None:
+        candidates = abstract_by_name.get(abstract_name, [])
+        if not candidates:
+            return None
+        if len(candidates) == 1:
+            return candidates[0]["sym"]
+        # Prefer the candidate whose file shares the most path characters with concrete_file
+        best = max(candidates, key=lambda c: len(os.path.commonprefix([concrete_file, c["file"] or ""])))
+        return best["sym"]
+
+    for t in triples:
+        t["abstract_sym"] = _best_abstract_sym(t["file"], t["abstract_name"])
+
+    valid_triples = [t for t in triples if t.get("abstract_sym")]
+
     q_edge = """
         UNWIND $batch AS row
-        MATCH (concrete:Fn {name: row.concrete_name})
-        MATCH (abstract:Fn  {name: row.abstract_name})
+        MATCH (concrete:Fn)
+        WHERE concrete.file = row.file AND concrete.def_line = row.def_line
+        MATCH (abstract:Fn {symbol: row.abstract_sym})
         MERGE (concrete)-[e:IMPLEMENTS]->(abstract)
-        SET e.impl_type      = row.type_name,
-            e.trait_args     = row.trait_args_str,
-            e.spec_key       = row.spec_key
+        SET e.impl_type  = row.type_name,
+            e.trait_args = row.trait_args_str,
+            e.spec_key   = row.spec_key
     """
-
-    with driver.session() as s:
-        # Reset existing annotations first (idempotent)
-        s.run("MATCH (fn:Fn) REMOVE fn.impl_trait, fn.impl_type, fn.impl_trait_args, fn.impl_method, fn.impl_spec_key")
-        s.run("MATCH ()-[r:IMPLEMENTS]->() DELETE r")
-
-        annotated = 0
-        for batch in _batches(triples):
-            result = s.run(q_annotate, batch=batch)
-            annotated += result.consume().counters.properties_set // 5   # 5 props set per node
-        print(f"  {annotated:,} :Fn nodes annotated", file=sys.stderr)
-
-        edges_created = 0
-        for batch in _batches(triples):
+    edges_created = 0
+    for batch in _batches(valid_triples):
+        with driver.session() as s:
             result = s.run(q_edge, batch=batch)
             edges_created += result.consume().counters.relationships_created
-        print(f"  {edges_created:,} [:IMPLEMENTS] edges created", file=sys.stderr)
+    print(f"  {edges_created:,} [:IMPLEMENTS] edges created", file=sys.stderr)
 
 
 # ── Neo4j: write Layer 2 ──────────────────────────────────────────────────────

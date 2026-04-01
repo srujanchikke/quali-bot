@@ -8,8 +8,10 @@ to find the innermost conditional guard wrapping that call, and write the
 result back onto the edge.
 
 Properties written on each [:CALLS] edge:
-  guard_type      : 'if' | 'if_let' | 'match' | 'while' | 'while_let' | 'for' | null
-  guard_condition : raw source text of the condition / scrutinee (first 300 chars)
+  guard_type        : 'if' | 'if_let' | 'match' | 'while' | 'while_let' | 'for' | null
+  guard_condition   : raw source text of the condition / scrutinee (first 300 chars)
+  match_arm_pattern : (match only) raw text of the arm pattern containing the call,
+                      e.g. "Connector::Stripe | Connector::Paypal" or "_"
 
 A null guard_type means the call is unconditional at its immediate scope.
 
@@ -146,6 +148,30 @@ def _condition_text(guard_node, src: bytes) -> tuple[str, str]:
     return (t, "")   # fallback — shouldn't happen
 
 
+def _find_arm_pattern(match_node, call_node, src: bytes) -> str | None:
+    """
+    Given a match_expression node and a descendant call_node, find the
+    match_arm that contains the call and return its pattern text.
+    E.g. "Connector::Stripe | Connector::Paypal" or "_".
+    Returns None if no match_arm ancestor is found between the two.
+    """
+    def _txt(n) -> str:
+        return src[n.start_byte:n.end_byte].decode("utf-8", errors="replace").strip()
+
+    node = call_node
+    while node is not None and node.id != match_node.id:
+        if node.type == "match_arm":
+            # Verify this arm is a direct child of the match_block of our match_node
+            parent = node.parent
+            if parent is not None and parent.parent is not None and parent.parent.id == match_node.id:
+                pattern = node.child_by_field_name("pattern")
+                if pattern:
+                    return _txt(pattern)
+                return None
+        node = node.parent
+    return None
+
+
 # ── Core: find guard for one call site ────────────────────────────────────────
 
 MAX_CONDITION_LEN = 300   # truncate very long conditions
@@ -178,10 +204,15 @@ def find_guard(src_root: str, rel_file: str, call_line: int) -> dict | None:
 
         if node.type in _GUARD_TYPES:
             guard_type, condition = _condition_text(node, src)
-            return {
+            result = {
                 "guard_type":      guard_type,
                 "guard_condition": condition[:MAX_CONDITION_LEN],
             }
+            if node.type == "match_expression":
+                arm_pat = _find_arm_pattern(node, start, src)
+                if arm_pat:
+                    result["match_arm_pattern"] = arm_pat[:MAX_CONDITION_LEN]
+            return result
 
         node = node.parent
 
@@ -248,8 +279,9 @@ def annotate_all(src_root: str):
     with driver.session() as s:
         s.run("""
             MATCH ()-[r:CALLS]->()
-            SET r.guard_type      = null,
-                r.guard_condition = null
+            SET r.guard_type        = null,
+                r.guard_condition   = null,
+                r.match_arm_pattern = null
         """)
 
     # Then set the guarded ones
@@ -257,8 +289,9 @@ def annotate_all(src_root: str):
         UNWIND $batch AS row
         MATCH ()-[r:CALLS]->()
         WHERE elementId(r) = row.eid
-        SET r.guard_type      = row.guard_type,
-            r.guard_condition = row.guard_condition
+        SET r.guard_type        = row.guard_type,
+            r.guard_condition   = row.guard_condition,
+            r.match_arm_pattern = row.match_arm_pattern
     """
     with driver.session() as s:
         for batch in _batches(annotated):

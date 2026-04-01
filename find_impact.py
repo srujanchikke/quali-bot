@@ -514,7 +514,7 @@ def load_graph(driver) -> tuple[dict, dict, dict]:
 
     Returns:
       fn_info    : {symbol → {name, file, def_line, is_endpoint, ..., impl_spec_key}}
-      reverse    : {callee_sym → [(caller_sym, guard_type, guard_condition, type_param)]}
+      reverse    : {callee_sym → [(caller_sym, guard_type, guard_condition, type_param, match_arm_pattern)]}
       implements : {concrete_sym → (abstract_sym, SpecConstraint)}
     """
     fn_info: dict = {}
@@ -556,11 +556,12 @@ def load_graph(driver) -> tuple[dict, dict, dict]:
         print("  loading CALLS edges …", file=sys.stderr)
         rows = s.run("""
             MATCH (a:Fn)-[r:CALLS]->(b:Fn)
-            RETURN a.symbol          AS caller,
-                   b.symbol          AS callee,
-                   r.guard_type      AS guard_type,
-                   r.guard_condition AS guard_condition,
-                   r.type_param      AS type_param
+            RETURN a.symbol              AS caller,
+                   b.symbol              AS callee,
+                   r.guard_type          AS guard_type,
+                   r.guard_condition     AS guard_condition,
+                   r.match_arm_pattern   AS match_arm_pattern,
+                   r.type_param          AS type_param
         """).data()
         for r in rows:
             callee = r["callee"]
@@ -570,7 +571,8 @@ def load_graph(driver) -> tuple[dict, dict, dict]:
                 r["caller"],
                 r.get("guard_type"),
                 r.get("guard_condition"),
-                r.get("type_param"),   # concrete type from turbofish/struct-as-arg
+                r.get("type_param"),          # concrete type from turbofish/struct-as-arg
+                r.get("match_arm_pattern"),   # specific match arm pattern (e.g. "Connector::Adyen")
             ))
 
         print("  loading IMPLEMENTS edges …", file=sys.stderr)
@@ -889,7 +891,7 @@ def bfs_upward(
     known_types: frozenset | None = None,
     max_depth: int = 8,
     implements: dict | None = None,
-    seed_spec: SpecConstraint | None = None,
+    seed_spec: SpecConstraint | None = None
 ) -> list[dict]:
     """
     BFS upward through the reverse CALLS graph with type-constrained trait dispatch.
@@ -930,10 +932,13 @@ def bfs_upward(
     # Only types present here are real connector names (e.g. "Adyen", "Stripe").
     # Framework wrappers like "ConnectorIntegrationEnum" or "RouterData" are NOT
     # in this set, so connector-consistency checks are not applied to them.
+    # We restrict to impl_trait == "ConnectorIntegration" — the core connector
+    # trait — which excludes dispatcher enums (ConnectorIntegrationEnum implements
+    # ConnectorIntegrationInterface, not ConnectorIntegration directly).
     _known_connector_types: frozenset = frozenset(
         spec.impl_type
         for _sym, (_abs, spec) in (implements or {}).items()
-        if spec.impl_type
+        if spec.impl_type and spec.trait_name == "ConnectorIntegration"
     )
 
     # Memoised Op-type lookup (avoids re-reading files)
@@ -1011,7 +1016,33 @@ def bfs_upward(
                             callers_to_process.append(item)
 
         for caller_sym, guard_type, guard_condition, *rest in callers_to_process:
-            edge_type_param = rest[0] if rest else None
+            edge_type_param    = rest[0] if len(rest) > 0 else None
+            match_arm_pattern  = rest[1] if len(rest) > 1 else None
+
+            # Type-param mismatch prune: the CALLS edge records the concrete operation
+            # type T that was flowing at this call site (extracted by build_trait_map.py
+            # from struct literals, constructor calls, or explicit type annotations on
+            # let bindings, e.g. `let rd: RouterData<IncrementalAuthorization, ..>`).
+            # If T is known here and conflicts with the operation type we are tracing
+            # (spec.trait_args[0]), this caller could never reach the changed function
+            # via the operation in question — prune the path.
+            # "_" is a Rust wildcard type inference placeholder — treat as unknown,
+            # never prune on it (avoids false negatives on turbofish with `_` args).
+                       # Skip the prune when spec.trait_args[0] is a short generic placeholder
+            # like "F", "T", "Op", "D" (length ≤ 2) — these are formal type parameters
+            # in the trait definition (e.g. GetTracker<F, PaymentData, ...>), not
+            # concrete types.  Comparing a concrete edge type_param ("Authorize") with
+            # a placeholder ("F") is always false and would incorrectly prune every
+            # caller of functions whose spec was derived from such a generic impl.
+
+            if (edge_type_param
+                    and edge_type_param != "_"
+                    and spec is not None
+                    and spec.trait_args
+                    and len(spec.trait_args[0]) > 2
+                    and edge_type_param != spec.trait_args[0]):
+                continue
+
             # If the edge carries a concrete type_param (from turbofish/struct-as-arg
             # recorded by build_trait_map.py), use it to build a minimal SpecConstraint
             # when none has been established yet on this path.
@@ -1019,6 +1050,30 @@ def bfs_upward(
                 effective_spec: SpecConstraint | None = SpecConstraint(impl_type=edge_type_param)
             else:
                 effective_spec = spec
+
+            # Match-arm connector prune:
+            # If the call is inside a match arm whose pattern is an explicit list of
+            # Connector::Xyz variants (e.g. "Connector::Stripe | Connector::Paypal"),
+            # and we have a locked connector for this path (spec.impl_type), check
+            # whether our connector is among those variants.
+            # This works for ANY match scrutinee (connector_name, connector_type, etc.)
+            # as long as the arm uses Connector::Xyz enum variants.
+            # Wildcard arms ("_") are not pruned — reachable by any connector.
+            if (match_arm_pattern
+                    and guard_type == "match"
+                    and effective_spec is not None
+                    and effective_spec.impl_type):
+                arm_text = match_arm_pattern.lower().strip()
+                # Only prune if the arm uses Connector:: variants (not a wildcard or guard)
+                if arm_text not in ("_", "..") and "connector::" in arm_text:
+                    locked = effective_spec.impl_type.lower()
+                    arm_variants = {
+                        v.strip().split("::")[-1].lower()
+                        for v in re.split(r"[|,]", arm_text)
+                        if "::" in v
+                    }
+                    if arm_variants and locked not in arm_variants:
+                        continue
 
             # Connector consistency: if this caller is a concrete connector-specific node
             # (3-part name like Zen#Trait#method) and the path is already locked to a
@@ -1037,7 +1092,14 @@ def bfs_upward(
             visit_key = (caller_sym, effective_spec)
             if visit_key in visited:
                 continue
-            visited.add(visit_key)
+            # Don't mark endpoints as visited — they are never added to the queue
+            # so there's no loop risk.  Keeping them out of visited lets step 5
+            # discover the same endpoint via multiple paths and pick the best chain
+            # (shortest / no false SCIP edge).  Non-endpoints must still be marked
+            # to avoid exponential revisits through the call graph.
+            info = fn_info.get(caller_sym, {})
+            if not info.get("is_endpoint"):
+                visited.add(visit_key)
 
             # Accumulate guard if the edge to this caller is conditional
             new_guards = guards
@@ -1052,10 +1114,10 @@ def bfs_upward(
 
             new_chain = [caller_sym] + chain
 
-            info = fn_info.get(caller_sym, {})
             if info.get("is_endpoint"):
                 # ── Step C: intersection filter ───────────────────────────────
                 constraint_type = effective_spec.impl_type if effective_spec else None
+                ep_name = info.get("name", "?")
                 if constraint_type is not None and concrete_types_step_a:
                     # (a) Step A check: was this concrete type confirmed by Tree-sitter?
                     if constraint_type not in concrete_types_step_a:
@@ -1819,7 +1881,7 @@ def find_impact(fn_name: str | None, src_root: str, max_depth: int = 8, out_path
         known_types=payment_op_types,
         max_depth=max_depth,
         implements=implements,
-        seed_spec=seed_spec,
+        seed_spec=seed_spec
     )
     # Remove internal BFS metadata before output
     for ep in endpoints:
