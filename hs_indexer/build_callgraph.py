@@ -26,9 +26,12 @@ Usage:
 import sys
 
 try:
-    from scip import scip_pb2
+    from . import scip_pb2
 except ImportError:
-    import scip_pb2
+    try:
+        from scip import scip_pb2
+    except ImportError:
+        import scip_pb2
 
 from neo4j import GraphDatabase
 
@@ -258,11 +261,10 @@ def load_into_neo4j(nodes: dict, raw_edges: list):
 
 # ── Entry point ────────────────────────────────────────────────────────────────
 
-if __name__ == "__main__":
-    scip_path = sys.argv[1] if len(sys.argv) > 1 else SCIP_PATH
-
-    print(f"[1/3] Parsing {scip_path} …")
-    index = load_scip(scip_path)
+def main(scip_path: str | None = None) -> None:
+    path = scip_path or SCIP_PATH
+    print(f"[1/3] Parsing {path} …")
+    index = load_scip(path)
     print(f"      {len(index.documents):,} documents in index")
 
     print("[2/3] Extracting call graph …")
@@ -274,4 +276,7 @@ if __name__ == "__main__":
     load_into_neo4j(nodes, edges)
 
     print("\nDone. Call graph is in Neo4j.")
-    print("Next: run  python build_callgraph.py  then move to Part 2 (Tree-sitter annotation).")
+
+
+if __name__ == "__main__":
+    main(sys.argv[1] if len(sys.argv) > 1 else None)

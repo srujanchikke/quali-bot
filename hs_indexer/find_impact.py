@@ -1835,7 +1835,7 @@ def find_impact(fn_name: str | None, src_root: str, max_depth: int = 8, out_path
     def _sym_priority(sym):
         info = fn_info[sym]
         file = info.get("file") or ""
-        if "test" in file or "scip_bridge" in file or "openapi" in file:
+        if "test" in file or "openapi" in file:
             return 1
         return 0
 

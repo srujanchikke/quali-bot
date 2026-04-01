@@ -324,21 +324,24 @@ def print_summary(src_root: str):
 
 # ── Entry point ────────────────────────────────────────────────────────────────
 
-if __name__ == "__main__":
-    src_root = os.environ.get("SRC_ROOT", "")
-    if not src_root:
+def main(src_root: str | None = None) -> None:
+    root = src_root or os.environ.get("SRC_ROOT", "")
+    if not root:
         print("Error: set SRC_ROOT environment variable to the hyperswitch repo root.")
         sys.exit(1)
-    if not os.path.isdir(src_root):
-        print(f"Error: SRC_ROOT={src_root!r} is not a directory.")
+    if not os.path.isdir(root):
+        print(f"Error: SRC_ROOT={root!r} is not a directory.")
         sys.exit(1)
 
     print(f"[1/2] Annotating CALLS edges with guard info …")
-    print(f"      SRC_ROOT = {src_root}")
-    annotate_all(src_root)
+    print(f"      SRC_ROOT = {root}")
+    annotate_all(root)
 
     print("\n[2/2] Summary")
-    print_summary(src_root)
+    print_summary(root)
 
     print("\nDone. CALLS edges now have guard_type / guard_condition properties.")
-    print("Next: Part 3 — BFS reachability from a changed function to API endpoints.")
+
+
+if __name__ == "__main__":
+    main()

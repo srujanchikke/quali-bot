@@ -566,6 +566,210 @@ def _extract_variable_binding_calls_from_file(abs_path: str, type_alias_map: dic
     return calls
 
 
+# ── Layer 3: Synthetic CALLS edges for async_trait impl bodies ────────────────
+#
+# Problem: SCIP does not record call occurrences inside `#[async_trait]` macro
+# expansions.  The concrete impl method nodes exist in Neo4j (created by Layer 1
+# above) but have no outgoing CALLS edges to the helpers they invoke.
+#
+# Solution: re-parse every impl method body with Tree-sitter, extract all call
+# expressions by name, then MERGE synthetic CALLS edges in Neo4j for any callee
+# that exists in the graph.  MERGE ensures we never duplicate an edge SCIP did
+# record; ON CREATE marks the synthetic ones with `synthetic: true` for tracing.
+#
+# No manual stub functions are required when new ops or trait methods are added.
+
+# Rust stdlib / common method names that flood every function body — matching
+# these against Fn nodes would create massive false-positive edges.
+_NOISE_CALLEES: frozenset[str] = frozenset({
+    "map", "ok", "err", "into", "from", "unwrap", "expect", "clone",
+    "len", "push", "pop", "get", "set", "new", "default", "iter",
+    "collect", "flatten", "filter", "and_then", "or_else", "ok_or",
+    "ok_or_else", "map_err", "is_some", "is_none", "is_empty",
+    "to_string", "to_owned", "as_ref", "as_mut", "as_str",
+    "try_from", "try_into", "into_iter", "next", "await",
+    "lock", "read", "write", "send", "recv", "spawn",
+    "box_err", "change_context", "attach_printable",
+})
+
+
+def _extract_calls_from_fn_body(fn_node: TSNode, src: bytes) -> list[dict]:
+    """
+    Walk a function_item node and collect every call expression.
+
+    Returns list of {callee, line} where:
+      callee  — short unqualified name of the function/method being called
+      line    — 1-indexed source line of the call expression
+    """
+    results: list[dict] = []
+
+    def _walk(node: TSNode) -> None:
+        if node.type == "call_expression":
+            fn_part = node.child_by_field_name("function")
+            if fn_part is not None:
+                name: str | None = None
+                if fn_part.type == "field_expression":
+                    # method call: receiver.method(args)  →  capture "method"
+                    field = fn_part.child_by_field_name("field")
+                    if field is not None:
+                        name = _ts_text(field, src)
+                elif fn_part.type == "generic_function":
+                    # turbofish: fn_name::<T>(args)  →  capture "fn_name"
+                    inner = fn_part.child_by_field_name("function")
+                    if inner is not None:
+                        name = _short_name(_ts_text(inner, src))
+                elif fn_part.type in ("identifier", "scoped_identifier"):
+                    name = _short_name(_ts_text(fn_part, src))
+
+                if name and len(name) >= 4 and name not in _NOISE_CALLEES:
+                    results.append({
+                        "callee": name,
+                        "line":   fn_part.start_point[0] + 1,
+                    })
+
+        for child in node.named_children:
+            _walk(child)
+
+    body = fn_node.child_by_field_name("body")
+    if body is not None:
+        _walk(body)
+    return results
+
+
+def collect_async_trait_call_edges(
+    impl_records: list[dict], src_root: str
+) -> list[dict]:
+    """
+    Re-parse every impl method body collected in Layer 1 and synthesize CALLS
+    edge records for all function calls found inside.
+
+    Returns list of:
+      {caller_file, caller_def_line, callee, call_line}
+    """
+    # Group by file so each file is parsed only once
+    by_file: dict[str, list[dict]] = {}
+    for r in impl_records:
+        by_file.setdefault(r["file"], []).append(r)
+
+    all_edges: list[dict] = []
+
+    for rel_file, records in by_file.items():
+        abs_path = os.path.join(src_root, rel_file)
+        tree, src = _parse_file(abs_path)
+        if tree is None:
+            continue
+
+        # Map def_line → method record for the methods in this file
+        def_line_to_rec: dict[int, dict] = {}
+        for r in records:
+            for method_name, def_line in r["methods"]:
+                def_line_to_rec[def_line] = {
+                    "method_name": method_name,
+                    "def_line":    def_line,
+                    "file":        rel_file,
+                }
+
+        def _walk(node: TSNode) -> None:
+            if node.type == "function_item":
+                def_line = node.start_point[0] + 1
+                if def_line in def_line_to_rec:
+                    rec = def_line_to_rec[def_line]
+                    for call in _extract_calls_from_fn_body(node, src):
+                        all_edges.append({
+                            "caller_file":     rec["file"],
+                            "caller_def_line": rec["def_line"],
+                            "callee":          call["callee"],
+                            "call_line":       call["line"],
+                        })
+                # Still recurse — nested fns (closures) may be inside
+            for child in node.named_children:
+                _walk(child)
+
+        _walk(tree.root_node)
+
+    print(
+        f"  {len(all_edges):,} synthetic call edges extracted from impl bodies",
+        file=sys.stderr,
+    )
+    return all_edges
+
+
+def write_synthetic_calls(call_edges: list[dict], driver) -> None:
+    """
+    Write CALLS edges synthesized from impl method bodies.
+
+    Uses MERGE so existing SCIP-recorded edges are never duplicated.
+    Only edges SCIP missed (ON CREATE branch) are marked with synthetic=true.
+    """
+    # Drop old synthetic edges so re-runs stay clean
+    with driver.session() as s:
+        deleted = s.run(
+            "MATCH ()-[r:CALLS {synthetic: true}]->() DELETE r RETURN count(r) AS n"
+        ).single()["n"]
+    if deleted:
+        print(f"  Removed {deleted:,} stale synthetic CALLS edges", file=sys.stderr)
+
+    # Pre-filter: only allow callees whose short name is UNIQUE in the graph.
+    # If two Fn nodes share the same name, the edge is ambiguous — we'd connect
+    # to the wrong one. Unique names are safe; duplicate names are skipped.
+    # Also excludes abstract trait nodes (name contains '#').
+    callee_names = {e["callee"] for e in call_edges}
+    unique_names: set[str] = set()
+    with driver.session() as s:
+        rows = s.run("""
+            UNWIND $names AS n
+            MATCH (fn:Fn)
+            WHERE fn.name = n AND NOT fn.name CONTAINS '#'
+            WITH n, count(fn) AS cnt
+            WHERE cnt = 1
+            RETURN n AS name
+        """, names=list(callee_names)).data()
+        unique_names = {r["name"] for r in rows}
+
+    filtered = [e for e in call_edges if e["callee"] in unique_names]
+    print(
+        f"  {len(unique_names):,} unique callee names (of {len(callee_names):,}) — "
+        f"{len(filtered):,} edges after uniqueness filter",
+        file=sys.stderr,
+    )
+
+    # Only create an edge when the callee exists AND:
+    #   1. Is not an abstract trait node (those have '#' — handled by IMPLEMENTS bridge)
+    #   2. Has an EXACT name match (not ENDS WITH — that was too broad)
+    #   3. Is unique by name (pre-filtered above)
+    q = """
+        UNWIND $batch AS row
+        MATCH (caller:Fn)
+        WHERE caller.file     = row.caller_file
+          AND caller.def_line = row.caller_def_line
+        MATCH (callee:Fn {name: row.callee})
+        MERGE (caller)-[r:CALLS]->(callee)
+        ON CREATE SET r.file      = row.caller_file,
+                      r.line      = row.call_line,
+                      r.synthetic = true
+    """
+    call_edges = filtered
+
+    import time
+    created = 0
+    for batch in _batches(call_edges, size=200):
+        retries = 5
+        while retries:
+            try:
+                with driver.session() as s:
+                    result = s.run(q, batch=batch)
+                    created += result.consume().counters.relationships_created
+                break
+            except Exception as exc:
+                if "Deadlock" in str(exc) and retries > 1:
+                    retries -= 1
+                    time.sleep(0.3)
+                else:
+                    raise
+
+    print(f"  {created:,} synthetic CALLS edges created", file=sys.stderr)
+
+
 # ── Neo4j: write Layer 1 ──────────────────────────────────────────────────────
 
 def _batches(lst, size=BATCH_SIZE):
@@ -794,6 +998,9 @@ def print_summary(driver):
         call_count = s.run(
             "MATCH ()-[r:CALLS]->() WHERE r.type_param IS NOT NULL RETURN count(r) AS n"
         ).single()["n"]
+        synthetic_count = s.run(
+            "MATCH ()-[r:CALLS {synthetic: true}]->() RETURN count(r) AS n"
+        ).single()["n"]
 
         top_traits = s.run("""
             MATCH (fn:Fn)
@@ -805,6 +1012,7 @@ def print_summary(driver):
     print(f"\n  :Fn nodes with impl_trait  : {impl_count:,}", file=sys.stderr)
     print(f"  [:IMPLEMENTS] edges        : {edge_count:,}", file=sys.stderr)
     print(f"  [:CALLS] edges with type   : {call_count:,}", file=sys.stderr)
+    print(f"  [:CALLS] synthetic edges   : {synthetic_count:,}", file=sys.stderr)
     print(f"\n  Top traits by impl count:", file=sys.stderr)
     for r in top_traits:
         print(f"    {r['trait']:40s} {r['cnt']:4d} impls", file=sys.stderr)
@@ -812,29 +1020,37 @@ def print_summary(driver):
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 
-if __name__ == "__main__":
-    src_root = os.environ.get("SRC_ROOT", "")
-    if not src_root or not os.path.isdir(src_root):
+def main(src_root: str | None = None) -> None:
+    root = src_root or os.environ.get("SRC_ROOT", "")
+    if not root or not os.path.isdir(root):
         print("Error: set SRC_ROOT to the hyperswitch repo root.", file=sys.stderr)
         sys.exit(1)
 
     driver = GraphDatabase.driver(NEO4J_URI, auth=NEO4J_AUTH)
 
-    print("[1/4] Scanning impl blocks …", file=sys.stderr)
-    impl_records = collect_all_impls(src_root)
+    print("[1/5] Scanning impl blocks …", file=sys.stderr)
+    impl_records = collect_all_impls(root)
 
-    print("[2/4] Writing trait impl annotations to Neo4j …", file=sys.stderr)
+    print("[2/5] Writing trait impl annotations to Neo4j …", file=sys.stderr)
     write_impl_annotations(impl_records, driver)
 
-    print("[3/4] Scanning generic call sites …", file=sys.stderr)
-    generic_calls = collect_all_generic_calls(src_root)
+    print("[3/5] Scanning generic call sites …", file=sys.stderr)
+    generic_calls = collect_all_generic_calls(root)
 
-    print("[4/4] Writing generic call annotations to Neo4j …", file=sys.stderr)
+    print("[4/5] Writing generic call annotations to Neo4j …", file=sys.stderr)
     write_generic_call_annotations(generic_calls, driver)
+
+    print("[5/5] Synthesizing CALLS edges for async_trait impl bodies …", file=sys.stderr)
+    synthetic_edges = collect_async_trait_call_edges(impl_records, root)
+    write_synthetic_calls(synthetic_edges, driver)
 
     print_summary(driver)
     driver.close()
 
     print("\nDone. Neo4j now has impl_trait/impl_type on :Fn nodes,", file=sys.stderr)
-    print("      [:IMPLEMENTS] edges, and type_param on [:CALLS] edges.", file=sys.stderr)
-    print("Next: run find_impact.py — it will use this data automatically.", file=sys.stderr)
+    print("      [:IMPLEMENTS] edges, type_param on [:CALLS] edges,", file=sys.stderr)
+    print("      and synthetic CALLS edges for async_trait impl bodies.", file=sys.stderr)
+
+
+if __name__ == "__main__":
+    main()
