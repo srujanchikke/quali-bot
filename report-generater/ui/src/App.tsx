@@ -139,7 +139,7 @@ function ArtifactFilePanel({
       {!text ? (
         <p className="text-xs text-[var(--app-muted)]">Not generated for this run.</p>
       ) : (
-        <pre className="max-h-[min(72vh,640px)] overflow-auto whitespace-pre-wrap break-words rounded-xl border border-[var(--app-border)] bg-[#05080d] p-4 text-[12px] leading-relaxed text-[var(--app-text-secondary)] shadow-inner">
+        <pre className="max-h-[min(72vh,640px)] overflow-auto whitespace-pre-wrap break-words rounded-xl border border-[var(--app-border)] bg-[var(--app-code-bg)] p-4 text-[12px] leading-relaxed text-[var(--app-text)] shadow-inner">
           {renderAnsiText(text)}
         </pre>
       )}
@@ -880,10 +880,10 @@ export default function App() {
 
             {activeTab === 'artifacts' ? (
               <>
-                <CollapsibleSection title="Run folder file structure" defaultOpen>
+                <CollapsibleSection title="Output folder file structure">
                   <ArtifactFilePanel text={run.outputTree?.join('\n')} />
                 </CollapsibleSection>
-                <CollapsibleSection title="Input (input.json file)" defaultOpen>
+                <CollapsibleSection title="Input (input.json file)">
                   <ArtifactFilePanel
                     text={
                       run.rawFiles['input.json']
@@ -901,7 +901,7 @@ export default function App() {
                     }
                   />
                 </CollapsibleSection>
-                <CollapsibleSection title="Quali bot logs" defaultOpen>
+                <CollapsibleSection title="Quali bot logs">
                   <ArtifactFilePanel
                     text={
                       run.rawFiles['terminal_output.log'] ?? run.rawFiles['flow_pipeline.log']

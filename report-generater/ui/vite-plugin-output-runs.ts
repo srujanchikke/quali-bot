@@ -72,6 +72,21 @@ function shouldSkipChildren(relativePath: string): boolean {
   )
 }
 
+function countFilesRecursively(dirPath: string): number {
+  if (!fs.existsSync(dirPath)) return 0
+  let count = 0
+  const entries = fs.readdirSync(dirPath, { withFileTypes: true })
+  for (const entry of entries) {
+    const fullPath = path.join(dirPath, entry.name)
+    if (entry.isDirectory()) {
+      count += countFilesRecursively(fullPath)
+    } else {
+      count += 1
+    }
+  }
+  return count
+}
+
 function listRunTree(runRoot: string, prefix = '', relativePath = ''): string[] {
   if (!fs.existsSync(runRoot)) return []
   const entries = fs.readdirSync(runRoot, { withFileTypes: true })
@@ -85,9 +100,13 @@ function listRunTree(runRoot: string, prefix = '', relativePath = ''): string[] 
     const nextRelativePath = relativePath ? `${relativePath}/${entry.name}` : entry.name
 
     if (entry.isDirectory()) {
-      lines.push(`${prefix}${branch}${entry.name}/`)
-      if (!shouldSkipChildren(nextRelativePath)) {
-        lines.push(...listRunTree(path.join(runRoot, entry.name), childPrefix, nextRelativePath))
+      const fullPath = path.join(runRoot, entry.name)
+      if (shouldSkipChildren(nextRelativePath)) {
+        const hiddenFileCount = countFilesRecursively(fullPath)
+        lines.push(`${prefix}${branch}${entry.name}/ (${hiddenFileCount} files)`)
+      } else {
+        lines.push(`${prefix}${branch}${entry.name}/`)
+        lines.push(...listRunTree(fullPath, childPrefix, nextRelativePath))
       }
     } else {
       lines.push(`${prefix}${branch}${entry.name}`)
