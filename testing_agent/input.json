@@ -1,0 +1,110 @@
+{
+  "changed_function": "Braintree#ConnectorIntegration<PaymentsVoidData>#build_request",
+  "changed_file": "crates/hyperswitch_connectors/src/connectors/braintree.rs",
+  "changed_line": 500,
+  "endpoint_count": 1,
+  "flow_count": 1,
+  "endpoints": [
+    {
+      "method": "POST",
+      "path": "/payments/{payment_id}/cancel",
+      "handler": "payments_cancel",
+      "call_chain": [
+        "payments_cancel",
+        "Braintree#ConnectorIntegration<PaymentsVoidData>#build_request"
+      ],
+      "guards": [],
+      "depth": 2,
+      "specialization": {
+        "connector": "Braintree",
+        "trait": "ConnectorIntegration",
+        "trait_args": [
+          "PaymentsVoidData"
+        ],
+        "method": "build_request",
+        "specialization_key": "ConnectorIntegration|Braintree|PaymentsVoidData|build_request"
+      }
+    }
+  ],
+  "flows": [
+    {
+      "flow_id": 1,
+      "description": "Braintree void payment \u2014 build_request constructs the cancel request to Braintree",
+      "changed_function": "Braintree#ConnectorIntegration<PaymentsVoidData>#build_request",
+      "changed_file": "crates/hyperswitch_connectors/src/connectors/braintree.rs",
+      "changed_line": 500,
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/payments/{payment_id}/cancel",
+          "handler": "payments_cancel"
+        }
+      ],
+      "prerequisites": [
+        {
+          "kind": "concrete_type",
+          "field": "connector",
+          "required_value": "Braintree",
+          "trait": "ConnectorIntegration",
+          "trait_args": [
+            "PaymentsVoidData"
+          ],
+          "confidence": "high"
+        }
+      ],
+      "chain": [
+        {
+          "function": "payments_cancel",
+          "file": "crates/router/src/routes/payments.rs",
+          "def_line": 100,
+          "role": "handler",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "Braintree#ConnectorIntegration<PaymentsVoidData>#build_request",
+          "file": "crates/hyperswitch_connectors/src/connectors/braintree.rs",
+          "def_line": 500,
+          "role": "target"
+        }
+      ],
+      "connectors": [],
+      "connector_count": 0,
+      "specialization": {
+        "connector": "Braintree",
+        "trait": "ConnectorIntegration",
+        "trait_args": [
+          "PaymentsVoidData"
+        ],
+        "method": "build_request",
+        "specialization_key": "ConnectorIntegration|Braintree|PaymentsVoidData|build_request"
+      },
+      "conditions_high": 0,
+      "conditions_missing": 0,
+      "setup_payloads": [],
+      "trigger_payload": {
+        "endpoint": "POST /payments/{payment_id}/cancel",
+        "body": {
+          "connector": "braintree"
+        }
+      }
+    }
+  ],
+  "reachability_matrix": [
+    {
+      "modified_function": "Braintree#ConnectorIntegration<PaymentsVoidData>#build_request",
+      "file": "crates/hyperswitch_connectors/src/connectors/braintree.rs",
+      "line": 500,
+      "endpoint": "POST /payments/{payment_id}/cancel",
+      "handler": "payments_cancel",
+      "impact_status": "Impacted",
+      "guard_conditions": [],
+      "likely_infeasible": false
+    }
+  ],
+  "infeasible_paths": []
+}

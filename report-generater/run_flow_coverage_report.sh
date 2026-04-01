@@ -31,7 +31,7 @@ HYPERSWITCH_ROOT="${HYPERSWITCH_ROOT:-${HOME}/hyperswitch}"
 CYPRESS_TESTS_ROOT="${CYPRESS_TESTS_ROOT:-${HYPERSWITCH_ROOT}/cypress-tests}"
 # Prefer explicit CYPRESS_REPO when set (alternate clone path); else use CYPRESS_TESTS_ROOT.
 CYPRESS_REPO_RESOLVED="${CYPRESS_REPO:-${CYPRESS_TESTS_ROOT}}"
-FLOW_JSON="${FLOW_JSON:-${PROJECT_ROOT}/testing_agent/adyen_get_auth_header_output.json}"
+FLOW_JSON="${FLOW_JSON:-${PROJECT_ROOT}/testing_agent/input.json}"
 SKIP_RUN="${SKIP_RUN:-0}"
 
 # Output directories

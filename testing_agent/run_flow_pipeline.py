@@ -1,35 +1,32 @@
 """
 run_flow_pipeline.py — End-to-end pipeline for flow_id JSON input
 =================================================================
-Takes the new flow JSON format and runs:
-  1. flow_query:   check if cypress tests cover the endpoints + scenario
-  2. flow_context: build LLM prompt if coverage missing
-  3. codegen:      call Grid LLM, write new spec file to disk
-  4. runner:       run the new spec with cypress
+Takes the flow JSON from the Rust analyser and runs:
+  1. flow_query:  check if cypress tests cover the endpoints + scenario
+  2. codegen:     call Grid LLM, patch Connector.js / Utils.js / generate spec
+  3. runner:      run the spec with cypress, auto-fix assertion mismatches
 
 Usage:
     python run_flow_pipeline.py --flow flow.json
     python run_flow_pipeline.py --flow flow.json --dry-run --verbose
     echo '{"flow_id":1,...}' | python run_flow_pipeline.py --flow -
-
-Flow JSON can be:
-  - A file path:  --flow /path/to/flow.json
-  - Stdin:        --flow -
-  - Inline JSON:  --flow '{"flow_id":1,...}'
 """
 
 import os
+import re
 import sys
 import json
 import argparse
 from pathlib import Path
 
-from flow_query   import FlowQueryEngine, CoverageStatus, FlowType, normalise_document, normalise_flow
-from flow_context import build_flow_context
+from flow_query   import (FlowQueryEngine, CoverageStatus, FlowType,
+                           normalise_document, normalise_flow)
+from flow_context import ContextBundle, Status, build_flow_context
 from codegen      import CodeGen
 from runner       import CypressRunner
+from indexer      import Indexer, FLOW_ENDPOINTS
 
-# ── env defaults ─────────────────────────────────────────────────────────────
+# ── env ───────────────────────────────────────────────────────────────────────
 
 REPO         = os.environ.get("CYPRESS_REPO",                     ".")
 NEO4J_URI    = os.environ.get("NEO4J_URI",                        "bolt://localhost:7687")
@@ -38,536 +35,331 @@ NEO4J_PASS   = os.environ.get("NEO4J_PASSWORD",                   "Hyperswitch12
 GRID_KEY     = os.environ.get("GRID_API_KEY",                     "")
 GRID_URL     = os.environ.get("GRID_BASE_URL",                    "")
 GRID_MODEL   = os.environ.get("GRID_MODEL",                       "glm-latest")
-CY_BASE_URL  = os.environ.get("CYPRESS_BASE_URL") or os.environ.get(
-    "CYPRESS_BASEURL", "http://localhost:8080"
-)
+CY_BASE_URL  = os.environ.get("CYPRESS_BASE_URL",                 "http://localhost:8080")
 CY_AUTH_FILE = os.environ.get("CYPRESS_CONNECTOR_AUTH_FILE_PATH", "")
 CY_PROFILE   = os.environ.get("CYPRESS_PROFILE_ID",               "")
 CY_CONN_ID   = os.environ.get("CYPRESS_CONNECTOR_ID",             "")
 
+# ── helpers ───────────────────────────────────────────────────────────────────
 
 def sep(title: str = ""):
     line = "─" * 60
-    if title:
-        print(f"\n{line}\n  {title}\n{line}")
-    else:
-        print(line)
+    print(f"\n{line}\n  {title}\n{line}" if title else line)
 
 
 def load_flow(flow_arg: str) -> tuple:
-    """
-    Load flow JSON. Returns (data, flows) where:
-      data  = raw parsed JSON (may be document or single flow)
-      flows = list of normalised flows ready for check_coverage()
-
-    Handles three input shapes:
-      1. Full document with data['flows'] list (new format from Rust analyser)
-      2. Single flow dict                      (old format)
-      3. Inline JSON string
-    """
+    """Load flow JSON. Returns (raw_data, list_of_normalised_flows)."""
     if flow_arg == "-":
         data = json.load(sys.stdin)
     else:
         p = Path(flow_arg)
-        if p.exists():
-            data = json.loads(p.read_text())
-        else:
-            try:
-                data = json.loads(flow_arg)
-            except json.JSONDecodeError:
-                raise ValueError(f"Cannot read flow: '{flow_arg}'")
+        data = json.loads(p.read_text()) if p.exists() else json.loads(flow_arg)
 
-    # Detect document vs single flow
     if "flows" in data and isinstance(data["flows"], list):
-        # Full document — extract and normalise all flows
-        flows = normalise_document(data)
-        return data, flows
-    else:
-        # Single flow — normalise it
-        flow = normalise_flow(data) if "changed_function" in data else data
-        return data, [flow]
+        return data, normalise_document(data)
+    flow = normalise_flow(data) if "changed_function" in data else data
+    return data, [flow]
 
 
-import re as _re
+def _make_runner() -> CypressRunner:
+    return CypressRunner(
+        repo_root    = REPO,
+        base_url     = CY_BASE_URL,
+        auth_file    = CY_AUTH_FILE,
+        profile_id   = CY_PROFILE,
+        connector_id = CY_CONN_ID,
+    )
+
+
+def _flow_to_list_key(result) -> str:
+    """
+    Map a trigger path to the CONNECTOR_LISTS INCLUDE.* key in Utils.js.
+    Returns "" for flows that have no allowlist (Void, SyncRefund, Refund etc.).
+    """
+    path    = result.trigger_paths[0] if result.trigger_paths else ""
+    handler = (result.handlers[0] if result.handlers else "").lower()
+    if "incremental_authorization" in path: return "INCREMENTAL_AUTH"
+    if "capture"                   in path: return "OVERCAPTURE"
+    if "manual_retry"              in handler: return "MANUAL_RETRY"
+    return ""
+
+
+def _trigger_path_to_flow_name(trigger_paths: list) -> str:
+    """Reverse-lookup: /payments/:id/incremental_authorization → IncrementalAuth"""
+    path_to_flow: dict[str, str] = {}
+    for fn, eps in FLOW_ENDPOINTS.items():
+        for ep in eps:
+            p = re.sub(r':\w+', ':id',
+                ep["path"]
+                .replace("{", ":").replace("}", "")
+                .replace("payment_id", "id").replace("refund_id", "id")
+                .replace("dispute_id", "id").replace("mandate_id", "id")
+                .replace("file_id", "id")
+            )
+            path_to_flow.setdefault(p, fn)
+
+    for tp in trigger_paths:
+        if tp in path_to_flow:
+            return path_to_flow[tp]
+        for k, fn in path_to_flow.items():
+            base = k.split("/:id")[0]
+            if base and base in tp:
+                return fn
+    return ""
+
+
+def _last_flow_in_connector(repo: str, connector_rel: str) -> str:
+    """Find the last PascalCase flow key in Connector.js (used as insert_after)."""
+    skip = {"Request", "Response", "Configs", "ResponseCustom", "card_pm", "connectorDetails"}
+    try:
+        js = (Path(repo) / connector_rel).read_text(encoding="utf-8", errors="replace")
+        flows = [m for m in re.findall(r'\b([A-Z][A-Za-z0-9]+)\s*:\s*\{', js) if m not in skip]
+        return flows[-1] if flows else "PaymentIntent"
+    except Exception:
+        return "PaymentIntent"
+
+
+def _extract_balanced_block(js: str, start: int) -> str:
+    """Extract a balanced-brace JS block starting at `start`."""
+    depth = 0
+    for i, ch in enumerate(js[start:]):
+        if ch == '{':   depth += 1
+        elif ch == '}':
+            depth -= 1
+            if depth == 0:
+                return js[start:start + i + 1]
+    return js[start:]
+
+
+def _get_style_example(repo: str, connector_rel: str, n: int = 2) -> str:
+    """Extract n real Request+Response blocks from Connector.js as LLM style reference."""
+    skip = {"Request", "Response", "Configs", "ResponseCustom", "card_pm", "connectorDetails"}
+    examples = []
+    try:
+        js = (Path(repo) / connector_rel).read_text(encoding="utf-8", errors="replace")
+        for m in re.finditer(r'\b([A-Z][A-Za-z0-9]+)\s*:\s*\{', js):
+            if m.group(1) in skip:
+                continue
+            block = _extract_balanced_block(js, m.start())
+            if "Request" in block and "Response" in block:
+                examples.append(block[:600])
+            if len(examples) >= n:
+                break
+    except Exception:
+        pass
+    return "\n".join(examples)
+
 
 def _pick_best_candidate(candidates, flow):
-    """
-    Pick the most relevant existing spec for a regression run.
-    Scores by matching the trigger body's payment characteristics to spec names/test names.
-    """
-    if not candidates: return None
+    """Score existing specs to find the most relevant one for regression."""
+    if not candidates:
+        return None
 
-    # Get trigger body signals
-    body = {}
+    body    = {}
+    handler = ""
     for cases in flow.get("trigger_payloads", {}).values():
         for case in cases.values():
             body = case.get("body", {})
             break
         break
-
-    # Also score by handler name keywords
     handler = (flow.get("endpoints", [{}])[0].get("handler", "")
                or next(iter(flow.get("trigger_payloads", {})), ""))
 
-    # Map handler keywords → spec keywords
     HANDLER_SPEC_MAP = {
-        "incremental": "incremental",
-        "overcapture": "overcapture",
-        "void":        "void",
-        "cancel":      "void",
-        "refund":      "refund",
-        "mandate":     "mandate",
-        "sync":        "sync",
-        "savecard":    "savecard",
-        "wallet":      "wallet",
-        "threedsauth": "threedsmanual",
+        "incremental": "incremental", "overcapture": "overcapture",
+        "void":        "void",        "cancel":      "void",
+        "refund":      "refund",      "mandate":     "mandate",
+        "sync":        "sync",        "savecard":    "savecard",
+        "wallet":      "wallet",      "threedsauth": "threedsmanual",
     }
 
     def score(c):
-        s = 0
-        spec = c.spec_file.split("/")[-1].lower()
+        s    = 0
+        spec  = c.spec_file.split("/")[-1].lower()
         tests = " ".join(c.test_names).lower()
+        h     = handler.lower()
 
-        # Handler-based boost — highest priority
-        h = handler.lower()
         for h_kw, s_kw in HANDLER_SPEC_MAP.items():
             if h_kw in h and s_kw in spec:
                 s += 500
 
-        # Scenario-specific boosts based on trigger body
         if body.get("confirm") is True:
             if any(kw in spec for kw in ("nothree", "no3ds", "autocapture", "manualcapture")):
                 s += 200
-            if "confirm" in tests:
-                s += 50
-        if body.get("capture_method") == "automatic":
-            if "auto" in spec: s += 150
-        if body.get("capture_method") == "manual":
-            if "manual" in spec: s += 150
+            if "confirm" in tests: s += 50
+        if body.get("capture_method") == "automatic" and "auto"   in spec: s += 150
+        if body.get("capture_method") == "manual"    and "manual" in spec: s += 150
         if body.get("amount_to_capture"):
-            if "overcapture" in spec: s += 400
-            elif "capture" in spec: s += 200
+            s += 400 if "overcapture" in spec else 200 if "capture" in spec else 0
         if "payment_method_data" in body:
-            if "card" in spec or "three" in spec or "nothree" in spec: s += 50
+            if any(kw in spec for kw in ("card", "three", "nothree")): s += 50
         if body.get("customer_id"):
             if any(kw in spec for kw in ("savecard", "customer", "mandate")): s += 100
-
-        # Penalise unrelated spec types for generic payment flows
         if not body.get("customer_id") and not body.get("mandate_id"):
-            if "incremental" not in h:  # don't penalise if we're looking for incremental
+            if "incremental" not in h:
                 if any(kw in spec for kw in ("mandate", "savecard", "zeroauth", "wallet",
                                               "banktransfer", "bankredirect", "upi", "crypto",
                                               "reward", "realtime", "variations")): s -= 300
-
-        # Prefer specs with more test coverage
         s += len(c.test_names)
         return s
 
     return max(candidates, key=score)
 
 
+# ── assertion auto-fix ────────────────────────────────────────────────────────
 
-def _flow_to_list_key(result) -> str:
-    """Map a flow's trigger path to the CONNECTOR_LISTS key in Utils.js."""
-    path = result.trigger_paths[0] if result.trigger_paths else ""
-    if "incremental_authorization" in path: return "INCREMENTAL_AUTH"
-    if "capture" in path:                   return "OVERCAPTURE"
-    if "cancel" in path:                    return "VOID"
-    # Fallback: derive from handler name
-    handler = result.handlers[0].upper() if result.handlers else ""
-    return handler
+def _parse_assertion_errors(stdout: str) -> list[dict]:
+    """
+    Parse cypress assertion diff blocks:
+      field_name
+      + expected - actual
+      -config_value    ← what test expected (wrong value in config)
+      +api_value       ← what API returned  (correct value to use)
+    """
+    return [
+        {"field": m.group(1), "config_val": m.group(2), "api_val": m.group(3)}
+        for m in re.finditer(
+            r'(\w+)\s*\n\s*\+\s*expected\s+-\s+actual.*?\n\s*-(\S+)\s*\n\s*\+(\S+)',
+            stdout, re.DOTALL
+        )
+    ]
 
 
-def _last_flow_in_connector(repo: str, connector_rel: str) -> str:
-    """Find the last PascalCase flow key in a Connector.js to use as insert_after."""
-    import re
-    try:
-        js = (Path(repo) / connector_rel).read_text(encoding="utf-8", errors="replace")
-        matches = re.findall(r'\b([A-Z][A-Za-z0-9]+)\s*:\s*\{', js)
-        skip = {"Request","Response","Configs","ResponseCustom"}
-        flows = [m for m in matches if m not in skip]
-        return flows[-1] if flows else "PaymentIntent"
-    except Exception:
-        return "PaymentIntent"
+def _auto_fix_connector_config(connector_js_path: str, flow_name: str,
+                                assertion_errors: list[dict]) -> list[str]:
+    """
+    Deterministic fix: replace wrong field values in the flow's Response block
+    with the values the API actually returned.
+    """
+    path = Path(connector_js_path)
+    if not path.exists():
+        return [f"⚠️  {path.name} not found"]
 
-def run_flow_pipeline(
-    flow:       dict,
-    repo:       str  = REPO,
-    dry_run:    bool = False,
-    skip_run:   bool = False,
-    run_only:   bool = False,
-    verbose:    bool = False,
-):
-    # Connector comes from the flow JSON — not from user input
-    connector = flow.get("connector", "")
-    changed   = flow.get("changed_function", "")
-    n_affected = flow.get("connector_count", 0)
-    # Validate repo
-    repo_path = Path(repo).resolve()
-    if not (repo_path / "cypress").exists():
-        print(f"\n❌ '{repo_path}' is not a cypress-tests repo root.")
-        print(f"   Set CYPRESS_REPO or pass --repo")
-        return
+    js = path.read_text(encoding="utf-8")
+    m  = re.search(rf'\b{re.escape(flow_name)}\s*:\s*\{{', js)
+    if not m:
+        return [f"⚠️  {flow_name} block not found in {path.name}"]
 
-    repo = str(repo_path)
-    flow_id = flow.get("flow_id", "?")
+    flow_block = _extract_balanced_block(js, m.start())
+    start, end = m.start(), m.start() + len(flow_block)
+    changes = []
 
-    sep(f"Flow pipeline: flow_id={flow_id}")
-    print(f"  Description     : {flow.get('description', '')[:80]}")
-    if changed:
-        print(f"  Changed function: {changed}")
-    if connector:
-        print(f"  Connector       : {connector}")
-    if n_affected:
-        print(f"  Connectors affected: {n_affected} (run for each or at minimum for {connector})")
-
-    q = FlowQueryEngine(NEO4J_URI, (NEO4J_USER, NEO4J_PASS))
-
-    try:
-        # ── STEP 1: Query ─────────────────────────────────────────────────────
-        sep("STEP 1 — Query: is this flow covered?")
-        result = q.check_coverage(flow, connector=connector)
-        print(f"  Status        : {result.status}")
-        print(f"  Trigger paths : {result.trigger_paths}")
-        print(f"  Setup paths   : {result.setup_paths}")
-        print(f"  Handlers      : {result.handlers}")
-
-        n = len(result.candidates)
+    for err in assertion_errors:
+        field, wrong, right = err["field"], err["config_val"], err["api_val"]
+        new_block, n = re.subn(
+            rf'({re.escape(field)}\s*:\s*){re.escape(wrong)}(\s*,?)',
+            rf'\g<1>{right}\2', flow_block, count=1
+        )
         if n:
-            best = _pick_best_candidate(result.candidates, flow)
-            print(f"  Candidates    : {n} existing spec(s)")
-            print(f"  Best match    : {best.spec_file} ({len(best.test_names)} tests)")
+            js         = js[:start] + new_block + js[end:]
+            end       += len(new_block) - len(flow_block)
+            flow_block = new_block
+            changes.append(f"  {flow_name}.Response.body.{field}: {wrong} → {right}")
 
-        # COVERED or NEEDS_LLM_CHECK with candidates:
-        # For CONNECTOR_ONLY flows, first verify the connector has:
-        #   A) a config block in Connector.js  (MISSING_CONFIG → codegen)
-        #   B) an entry in the allowlist        (NOT_IN_ALLOWLIST → codegen)
-        # Only then run the spec.
-        if result.status in (CoverageStatus.COVERED, CoverageStatus.NEEDS_LLM_CHECK) and result.candidates:
-            best = _pick_best_candidate(result.candidates, flow)
+    if changes:
+        path.write_text(js, encoding="utf-8")
+    return changes
 
-            # For CONNECTOR_ONLY: check connector-level config before running
-            if connector and result.flow_type == FlowType.CONNECTOR_ONLY:
-                flow_name = q._derive_flow_name(result.trigger_paths, connector)
-                if not flow_name:
-                    # Derive from trigger path directly
-                    tp = result.trigger_paths[0] if result.trigger_paths else ""
-                    if "incremental_authorization" in tp: flow_name = "IncrementalAuth"
-                    elif "capture" in tp:                 flow_name = "Capture"
-                    elif "cancel" in tp:                  flow_name = "VoidAfterConfirm"
-                    elif "refund" in tp:                  flow_name = "Refund"
 
-                if flow_name:
-                    cc_result = q.check_connector_flow(connector, flow_name)
-                    result.connector_check = cc_result.connector_check
-                    if cc_result.status not in (CoverageStatus.COVERED, CoverageStatus.NEEDS_LLM_CHECK):
-                        print(f"  ⚠️  Spec exists but {connector} config is incomplete: {cc_result.status}")
-                        print(f"  → Need to patch config before running spec")
-                        result.status = cc_result.status
-                        result.what_to_fix = cc_result.what_to_fix
-                        # Fall through to codegen steps below
-                    else:
-                        print(f"  ✅ {connector} config OK — running spec for regression")
-                        if dry_run:
-                            print(f"  (dry-run) would run: {best.spec_file} --env CONNECTOR={connector.lower()}")
-                            return
-                        if not skip_run:
-                            _run_cypress_spec(best.spec_file, connector, repo, verbose)
-                        return
-                else:
-                    print(f"  ✅ Existing spec covers these endpoints — run for regression")
-                    if dry_run:
-                        print(f"  (dry-run) would run: {best.spec_file} --env CONNECTOR={connector.lower()}")
-                        return
-                    if not skip_run:
-                        _run_cypress_spec(best.spec_file, connector, repo, verbose)
-                    return
-            else:
-                print(f"  ✅ Existing spec covers these endpoints — run for regression")
-                if dry_run:
-                    print(f"  (dry-run) would run: {best.spec_file} --env CONNECTOR={connector.lower()}")
-                    return
-                if not skip_run:
-                    _run_cypress_spec(best.spec_file, connector, repo, verbose)
-                return
+def _llm_fix_connector_config(full_path: str, flow_name: str, connector: str,
+                               repo: str, failed_output: str) -> bool:
+    """
+    LLM-assisted fix: used when deterministic fix can't resolve structural issues.
+    Sends the failing block + command assertions + a passing reference to the LLM.
+    """
+    if not GRID_KEY or not GRID_URL:
+        print("  ⚠️  GRID_API_KEY / GRID_BASE_URL not set — cannot call LLM")
+        return False
 
-        if run_only:
-            if result.candidates:
-                best = _pick_best_candidate(result.candidates, flow)
-                _run_cypress_spec(best.spec_file, connector, repo, verbose)
-            else:
-                print("  ❌ --run-only but no spec found")
-            return
+    connector_js = Path(full_path).read_text(encoding="utf-8", errors="replace")
 
-        from flow_context import ContextBundle, Status
-        from flow_query import CoverageStatus as CS
-        from indexer import Indexer
+    # Current broken block
+    m = re.search(rf'{re.escape(flow_name)}\s*:\s*\{{', connector_js)
+    if not m:
+        return False
+    current_block = _extract_balanced_block(connector_js, m.start())
+    start = m.start(); end = start + len(current_block)
 
-        # Route by connector_check status — three different strategies:
-        #   MISSING_CONFIG   → insert_flow_block  (add block to Connector.js + Utils.js)
-        #   NOT_IN_ALLOWLIST → allowlist_only      (add connector to Utils.js list only)
-        #   MISSING          → full_file_rewrite   (generate brand new spec file)
-        cc_status = (result.connector_check.status
-                     if result.connector_check else result.status)
+    # Cypress command source (what the test asserts)
+    cmd_name = flow_name[0].lower() + flow_name[1:]
+    cmd_src  = ""
+    cmd_path = Path(repo) / "cypress/support/commands.js"
+    if cmd_path.exists():
+        src = cmd_path.read_text(encoding="utf-8", errors="replace")
+        cm  = re.search(
+            r'Cypress\.Commands\.add\(["\']' + cmd_name + r'["\'].*?(?=Cypress\.Commands\.add|\Z)',
+            src, re.DOTALL
+        )
+        if cm:
+            cmd_src = cm.group(0)[:1500]
 
-        idx = Indexer(repo, NEO4J_URI, (NEO4J_USER, NEO4J_PASS))
-        cg  = CodeGen(repo, indexer=idx, model=GRID_MODEL,
-                      api_key=GRID_KEY, base_url=GRID_URL)
+    # Reference block from another connector that passes
+    ref_block = ref_connector = ""
+    for js_file in sorted((Path(repo) / "cypress/e2e/configs/Payment").glob("*.js")):
+        if js_file.stem.lower() in (connector.lower(), "utils", "commons", "modifiers"):
+            continue
+        text = js_file.read_text(encoding="utf-8", errors="replace")
+        rm   = re.search(rf'{re.escape(flow_name)}\s*:\s*\{{', text)
+        if rm:
+            ref_block     = _extract_balanced_block(text, rm.start())
+            ref_connector = js_file.stem
+            break
 
-        # ── Strategy A: NOT_IN_ALLOWLIST ──────────────────────────────────────
-        if cc_status == CoverageStatus.NOT_IN_ALLOWLIST:
-            cc        = result.connector_check
-            utils_rel = "cypress/e2e/configs/Payment/Utils.js"
-            list_key  = (cc.allowlist_key if cc and cc.allowlist_key
-                         else _flow_to_list_key(result))
-            sep("STEP 2 — allowlist_only: add to Utils.js")
-            print(f"  Adding '{connector.lower()}' to CONNECTOR_LISTS.{list_key}")
-            if dry_run:
-                print(f"  (dry-run) would patch: {utils_rel}")
-                idx.close(); return
-            ctx_bundle = ContextBundle(
-                connector=connector, flow=str(flow_id),
-                status=Status.NOT_IN_ALLOWLIST,
-                prompt="", system_prompt="",
-                files_to_edit=[utils_rel],
-                patch_meta={
-                    "type":           "allowlist_only",
-                    "skip_llm":       True,
-                    "allowlist_file": utils_rel,
-                    "allowlist_key":  list_key,
-                    "connector_name": connector.lower(),
-                },
-            )
-            patch = cg.apply(ctx_bundle)
-            print(f"  {patch.summary()}")
-            idx.close()
-            if patch.success and not skip_run:
-                best = _pick_best_candidate(result.candidates, flow) if result.candidates else None
-                if best:
-                    sep("STEP 3 — Cypress run")
-                    _run_cypress_spec(best.spec_file, connector, repo, verbose)
-            return
+    # What failed
+    assertion_summary = "\n".join(
+        f"  field '{m2.group(1)}': config has {m2.group(2)}, API returned {m2.group(3)}"
+        for m2 in re.finditer(
+            r'(\w+)\s*\n\s*\+\s*expected\s+-\s+actual.*?\n\s*-(\S+)\s*\n\s*\+(\S+)',
+            failed_output, re.DOTALL
+        )
+    ) or "  (see raw output)"
 
-        # ── Strategy B: MISSING_CONFIG ────────────────────────────────────────
-        if cc_status == CoverageStatus.MISSING_CONFIG:
-            cc            = result.connector_check
-            connector_rel = f"cypress/e2e/configs/Payment/{connector}.js"
-            utils_rel     = "cypress/e2e/configs/Payment/Utils.js"
-            list_key      = _flow_to_list_key(result)
-            flow_name     = cc.flow_name if cc else "UnknownFlow"
-            insert_after  = _last_flow_in_connector(repo, connector_rel)
+    prompt = f"""Fix the {flow_name} config block in {connector}.js.
 
-            sep("STEP 2 — Build context (insert_flow_block)")
+## Failing assertions
+{assertion_summary}
 
-            # Read connector's existing blocks as style reference
-            connector_js = (Path(repo) / connector_rel).read_text(encoding="utf-8", errors="replace")
-
-            # Build a focused prompt — NOT a spec prompt.
-            # The LLM must output ONLY a <new_flow_block> tag.
-            system_prompt = (
-                "You are a senior engineer working on the Hyperswitch payment platform cypress test suite. "
-                "You generate minimal, precise JavaScript config additions for connector files. "
-                "Output ONLY the requested XML tag — no explanation, no markdown, no other text."
-            )
-
-            ref_block_section = ""
-            if cc and cc.reference_block:
-                ref_block_section = (
-                    f"\n\n## Reference block (from {cc.reference_connector})"
-                    f"\nThis connector already has {flow_name}. Use it as the content template:\n"
-                    f"```javascript\n{cc.reference_block[:2000]}\n```"
-                )
-
-            # Extract a few existing blocks from this connector as style reference
-            import re as _re
-            existing_blocks = _re.findall(
-                r'([A-Z][A-Za-z0-9]+)\s*:\s*\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}',
-                connector_js
-            )[:3]
-            style_example = "\n".join(existing_blocks) if existing_blocks else ""
-
-            prompt = f"""You must add a new flow config block to {connector}.js for the {flow_name} flow.
-
-## What to generate
-A single JavaScript object block for `{flow_name}` inside `connectorDetails.card_pm`.
-Insert it after the `{insert_after}` block.
-
-## Required output format
-Wrap the block in exactly this tag — nothing else:
-<new_flow_block>
-{flow_name}: {{
-  Request: {{
-    // fields needed to trigger this flow
-  }},
-  Response: {{
-    status: 200,
-    body: {{
-      status: "...", // expected payment status
-    }},
-  }},
-}},
-</new_flow_block>
-
-## {connector} style (copy this formatting exactly)
-The block must match the style of existing blocks in {connector}.js:
+## Current {connector} block (needs fixing)
 ```javascript
-{style_example}
+{current_block}
 ```
-{ref_block_section}
+
+## What the test asserts (cy.{cmd_name})
+```javascript
+{cmd_src}
+```
+
+## Reference block from {ref_connector} (passes the test)
+```javascript
+{ref_block}
+```
 
 ## Rules
-- Output ONLY the <new_flow_block>...</new_flow_block> tag
-- No imports, no describe(), no it() blocks — this is a config block not a spec
-- No markdown outside the tag
-- Match the Request/Response structure of the reference block above
-- Use {connector}-appropriate card details and expected statuses
+- Values must match what the {connector} API actually returns (see failing assertions)
+- Output ONLY the fixed block in <new_flow_block>...</new_flow_block>
+- No explanation, no markdown outside the tag
 """
-
-            print(f"  Target        : {connector_rel}")
-            print(f"  Flow to add   : {flow_name}")
-            print(f"  Insert after  : {insert_after}")
-            print(f"  List key      : {list_key}")
-            print(f"  Reference from: {cc.reference_connector if cc else 'none'}")
-            print(f"  Prompt tokens : ~{len(prompt)//4:,}")
-            if verbose: sep("Prompt"); print(prompt)
-            if dry_run:
-                print("\n  (dry-run — no files written)")
-                idx.close(); return
-
-            sep("STEP 3 — Codegen: insert_flow_block")
-            ctx_bundle = ContextBundle(
-                connector=connector, flow=str(flow_id),
-                status=Status.MISSING_CONFIG,
-                prompt=prompt, system_prompt=system_prompt,
-                files_to_edit=[connector_rel, utils_rel],
-                patch_meta={
-                    "type":           "insert_flow_block",
-                    "target_file":    connector_rel,
-                    "insert_after":   insert_after,
-                    "allowlist_file": utils_rel,
-                    "allowlist_key":  list_key,
-                    "connector_name": connector.lower(),
-                },
-            )
-            patch = cg.apply(ctx_bundle)
-            print(f"  {patch.summary()}")
-            idx.close()
-            if not patch.success:
-                print(f"\n❌ Codegen failed: {patch.error}")
-                return
-            if verbose and patch.llm_response:
-                sep("LLM response"); print(patch.llm_response)
-            if not skip_run:
-                # result.candidates is empty (check_coverage returned early for MISSING_CONFIG)
-                # Re-query now that files are patched and reindexed
-                candidates = q._find_covering_specs(result.trigger_paths)
-                best = _pick_best_candidate(candidates, flow) if candidates else None
-                if best:
-                    sep("STEP 4 — Cypress run")
-                    _run_cypress_spec(best.spec_file, connector, repo, verbose)
-                else:
-                    print("  ⚠️  No spec found to run after patching — reindex and retry")
-            return
-
-        # ── Strategy C: MISSING — generate new spec file ─────────────────────
-        sep("STEP 2 — Build context (full_file_rewrite)")
-        bundle = build_flow_context(result, repo, q)
-        print(f"  Spec target   : {bundle.spec_to_create}")
-        print(f"  Prompt tokens : ~{len(bundle.prompt) // 4:,}")
-        if verbose: sep("Prompt"); print(bundle.prompt)
-        if dry_run:
-            print("\n  (dry-run — no files written, no LLM called)")
-            idx.close(); return
-
-        sep("STEP 3 — Codegen: generate spec file")
-        ctx_bundle = ContextBundle(
-            connector     = f"flow_{flow_id}",
-            flow          = bundle.description,
-            status        = Status.MISSING_TEST,
-            prompt        = bundle.prompt,
-            system_prompt = bundle.system_prompt,
-            files_to_edit = bundle.files_to_edit,
-            patch_meta    = bundle.patch_meta,
+    try:
+        from codegen import GridClient, _parse_new_flow_block, _normalise_block
+        response  = GridClient(api_key=GRID_KEY, base_url=GRID_URL, model=GRID_MODEL).chat(
+            system="You fix JavaScript connector config blocks. Output ONLY the <new_flow_block> tag.",
+            user=prompt
         )
-        patch = cg.apply(ctx_bundle)
-        print(f"  {patch.summary()}")
-        idx.close()
-
-        if not patch.success:
-            print(f"\n❌ Codegen failed: {patch.error}")
-            if patch.llm_response:
-                print(f"\nLLM response:\n{patch.llm_response[:500]}")
-            return
-
-        if verbose and patch.llm_response:
-            sep("LLM response"); print(patch.llm_response)
-
-        if not skip_run:
-            spec_file = patch.files_changed[0] if patch.files_changed else bundle.spec_to_create
-            sep("STEP 4 — Cypress run")
-            _run_cypress(spec_file, repo, verbose)
-
-    except Exception as err:
-        # Keep pipeline logs machine-readable and avoid hard crashes when
-        # infrastructure dependencies (Neo4j, Grid LLM, etc.) are missing or misconfigured.
-        print(f"\n❌ Flow pipeline failed before Cypress execution: {err}")
-        hint = "Fix the issue above and re-run; continuing without Cypress."
-        es = str(err)
-        if "GRID_API_KEY" in es or "GLM_API_KEY" in es:
-            hint = "Set GRID_API_KEY (and optionally GRID_BASE_URL, GRID_MODEL), then re-run; continuing without Cypress."
-        elif "7687" in es or "Neo4j" in es or "bolt://" in es:
-            hint = "Ensure Neo4j is running and NEO4J_URI / NEO4J_PASSWORD match; continuing without Cypress."
-        print(f"   {hint}")
-        return
-    finally:
-        q.close()
+        new_block = _parse_new_flow_block(response)
+        if not new_block:
+            print("  LLM response missing <new_flow_block> tag")
+            return False
+        Path(full_path).write_text(
+            connector_js[:start] + _normalise_block(new_block) + connector_js[end:],
+            encoding="utf-8"
+        )
+        return True
+    except Exception as e:
+        print(f"  LLM fix error: {e}")
+        return False
 
 
-def _run_cypress_spec(spec_file: str, connector: str, repo: str, verbose: bool = False):
-    """Run a specific spec file for a given connector, with setup specs first."""
-
-    # Verify the spec file actually exists on disk
-    full_path = Path(repo) / spec_file
-    if not full_path.exists():
-        # Try finding by spec name prefix (e.g. "00028" matches any file starting with that)
-        spec_name = Path(spec_file).stem          # "00028-IncrementalAuth"
-        spec_num  = spec_name.split("-")[0]       # "00028"
-        spec_dir  = Path(repo) / Path(spec_file).parent
-        candidates = list(spec_dir.glob(f"{spec_num}-*.cy.js")) if spec_dir.exists() else []
-        if candidates:
-            full_path = candidates[0]
-            spec_file = str(full_path.relative_to(Path(repo)))
-            print(f"  ℹ️  Resolved spec to: {spec_file}")
-        else:
-            print(f"  ❌ Spec file not found: {full_path}")
-            print(f"     Files in {spec_dir}:")
-            if spec_dir.exists():
-                for f in sorted(spec_dir.iterdir())[:10]:
-                    print(f"       {f.name}")
-            print(f"     Run: git pull in your cypress-tests repo")
-            return
-
-    runner = CypressRunner(
-        repo_root    = repo,
-        base_url     = CY_BASE_URL,
-        auth_file    = CY_AUTH_FILE,
-        profile_id   = CY_PROFILE,
-        connector_id = CY_CONN_ID,
-    )
-    c = connector.lower() if connector else "service"
-    print(f"  Running: {spec_file} --env CONNECTOR={c}")
-
-    # Payment specs need 00001-AccountCreate, 00002-CustomerCreate, 00003-ConnectorCreate
-    # to run first so globalState has connectorId, customerId etc.
-    is_payment_spec = "spec/Payment/" in spec_file
-    result = runner.run(c, flow="", spec_file=spec_file, setup=is_payment_spec)
-    _print_run_result(result, verbose)
-
-
-def _run_cypress(spec_file: str, repo: str, verbose: bool = False):
-    """Run a spec file without a specific connector (service-level)."""
-    _run_cypress_spec(spec_file, "service", repo, verbose)
-
+# ── cypress run helpers ───────────────────────────────────────────────────────
 
 def _print_run_result(result, verbose: bool = False):
     print(f"\n  {result.summary()}")
@@ -577,39 +369,352 @@ def _print_run_result(result, verbose: bool = False):
     if result.passed:
         print(f"  ✅ {result.passing}/{result.total} tests passed in {result.duration_ms}ms")
     else:
-        print(f"\n  Failed tests:")
+        print("\n  Failed tests:")
         for ft in result.failed_tests:
-            print(f"    ✗ {ft.name}")
-            print(f"      {ft.error}")
+            print(f"    ✗ {ft.name}\n      {ft.error}")
     if verbose:
         sep("Raw output")
         print(result.raw_stdout)
 
 
+def _run_spec(spec_file: str, connector: str, repo: str, verbose: bool = False):
+    """Run a spec file with setup specs (00001-00003) prepended for payment specs."""
+    full = Path(repo) / spec_file
+    if not full.exists():
+        num  = Path(spec_file).stem.split("-")[0]
+        hits = list((Path(repo) / Path(spec_file).parent).glob(f"{num}-*.cy.js"))
+        if hits:
+            spec_file = str(hits[0].relative_to(Path(repo)))
+            print(f"  ℹ️  Resolved spec to: {spec_file}")
+        else:
+            print(f"  ❌ Spec not found: {full}")
+            return
+
+    c      = connector.lower() if connector else "service"
+    setup  = "spec/Payment/" in spec_file
+    result = _make_runner().run(c, flow="", spec_file=spec_file, setup=setup)
+    print(f"  Running: {spec_file} --env CONNECTOR={c}")
+    _print_run_result(result, verbose)
+    return result
+
+
+def _run_and_autofix(spec_file: str, connector: str, repo: str, verbose: bool,
+                     connector_rel: str, flow_name: str, max_retries: int = 2):
+    """
+    Run cypress. On failure:
+      1. Deterministic fix — parse assertion diffs, patch config values
+      2. LLM fix — for structural issues deterministic fix can't handle
+    Retries up to max_retries times.
+    """
+    full_path = str(Path(repo) / connector_rel)
+
+    for attempt in range(1, max_retries + 2):
+        sep(f"STEP 4 — Cypress run (attempt {attempt})")
+        result = _make_runner().run(connector.lower(), flow="", spec_file=spec_file, setup=True)
+        _print_run_result(result, verbose)
+
+        if result.passed:
+            return
+        if attempt > max_retries:
+            print(f"  ❌ Still failing after {max_retries} auto-fix attempts")
+            return
+
+        sep(f"Auto-fix: updating {connector}.js (attempt {attempt})")
+        errors = _parse_assertion_errors(result.raw_stdout)
+
+        if errors:
+            changes = _auto_fix_connector_config(full_path, flow_name, errors)
+            if changes:
+                for c in changes: print(c)
+                print("  Retrying...")
+                continue
+
+        print("  Simple value fix failed — calling LLM with full context")
+        if _llm_fix_connector_config(full_path, flow_name, connector, repo, result.raw_stdout):
+            print(f"  ✅ LLM applied fix — retrying...")
+        else:
+            print("  ❌ LLM fix failed — check the config block manually")
+            return
+
+
+# ── pipeline ──────────────────────────────────────────────────────────────────
+
+def run_flow_pipeline(flow: dict, repo: str = REPO, dry_run: bool = False,
+                      skip_run: bool = False, run_only: bool = False, verbose: bool = False):
+
+    connector = flow.get("connector", "")
+    repo      = str(Path(repo).resolve())
+
+    if not (Path(repo) / "cypress").exists():
+        print(f"\n❌ '{repo}' is not a cypress-tests repo root. Set CYPRESS_REPO or pass --repo")
+        return
+
+    sep(f"Flow pipeline: flow_id={flow.get('flow_id', '?')}")
+    print(f"  Description     : {flow.get('description', '')[:80]}")
+    if flow.get("changed_function"): print(f"  Changed function: {flow['changed_function']}")
+    if connector:                    print(f"  Connector       : {connector}")
+
+    q   = FlowQueryEngine(NEO4J_URI, (NEO4J_USER, NEO4J_PASS))
+    idx = Indexer(repo, NEO4J_URI, (NEO4J_USER, NEO4J_PASS))
+    cg  = CodeGen(repo, indexer=idx, model=GRID_MODEL, api_key=GRID_KEY, base_url=GRID_URL)
+
+    try:
+        # ── STEP 1: Query coverage ────────────────────────────────────────────
+        sep("STEP 1 — Query: is this flow covered?")
+        result = q.check_coverage(flow, connector=connector)
+        print(f"  Status        : {result.status}")
+        print(f"  Trigger paths : {result.trigger_paths}")
+        print(f"  Setup paths   : {result.setup_paths}")
+        print(f"  Handlers      : {result.handlers}")
+
+        if result.candidates:
+            best = _pick_best_candidate(result.candidates, flow)
+            print(f"  Candidates    : {len(result.candidates)} existing spec(s)")
+            print(f"  Best match    : {best.spec_file} ({len(best.test_names)} tests)")
+
+        # ── COVERED / NEEDS_LLM_CHECK ─────────────────────────────────────────
+        if result.status in (CoverageStatus.COVERED, CoverageStatus.NEEDS_LLM_CHECK) \
+                and result.candidates:
+            best = _pick_best_candidate(result.candidates, flow)
+
+            # For CONNECTOR_ONLY: verify the connector has a config block + allowlist entry
+            if connector and result.flow_type == FlowType.CONNECTOR_ONLY:
+                flow_name = (q._derive_flow_name(result.trigger_paths, connector)
+                             or _trigger_path_to_flow_name(result.trigger_paths))
+
+                if flow_name:
+                    cc_result = q.check_connector_flow(connector, flow_name)
+                    result.connector_check = cc_result.connector_check
+
+                    if cc_result.status not in (CoverageStatus.COVERED,
+                                                CoverageStatus.NEEDS_LLM_CHECK):
+                        print(f"  ⚠️  Spec exists but {connector} config incomplete: {cc_result.status}")
+                        result.status      = cc_result.status
+                        result.what_to_fix = cc_result.what_to_fix
+                        # fall through to codegen
+                    else:
+                        print(f"  ✅ {connector} config OK — running spec for regression")
+                        if dry_run:
+                            print(f"  (dry-run) would run: {best.spec_file}")
+                            return
+                        if not skip_run:
+                            connector_rel = f"cypress/e2e/configs/Payment/{connector}.js"
+                            _run_and_autofix(best.spec_file, connector, repo, verbose,
+                                             connector_rel, flow_name)
+                        return
+
+            if dry_run:
+                print(f"  (dry-run) would run: {best.spec_file}")
+                return
+            if not skip_run:
+                _run_spec(best.spec_file, connector, repo, verbose)
+            return
+
+        if run_only:
+            if result.candidates:
+                _run_spec(_pick_best_candidate(result.candidates, flow).spec_file,
+                          connector, repo, verbose)
+            else:
+                print("  ❌ --run-only but no spec found")
+            return
+
+        # Route by status
+        cc_status = result.connector_check.status if result.connector_check else result.status
+
+        connector_rel = f"cypress/e2e/configs/Payment/{connector}.js"
+        utils_rel     = "cypress/e2e/configs/Payment/Utils.js"
+
+        # ── Strategy A: NOT_IN_ALLOWLIST ──────────────────────────────────────
+        if cc_status == CoverageStatus.NOT_IN_ALLOWLIST:
+            cc       = result.connector_check
+            list_key = cc.allowlist_key if cc and cc.allowlist_key else _flow_to_list_key(result)
+
+            sep("STEP 2 — allowlist_only: add to Utils.js")
+            print(f"  Adding '{connector.lower()}' to CONNECTOR_LISTS.{list_key}")
+            if dry_run:
+                print(f"  (dry-run) would patch: {utils_rel}")
+                return
+
+            patch = cg.apply(ContextBundle(
+                connector=connector, flow=str(flow.get("flow_id", "")),
+                status=Status.NOT_IN_ALLOWLIST, prompt="", system_prompt="",
+                files_to_edit=[utils_rel],
+                patch_meta={"type": "allowlist_only", "skip_llm": True,
+                            "allowlist_file": utils_rel, "allowlist_key": list_key,
+                            "connector_name": connector.lower()},
+            ))
+            print(f"  {patch.summary()}")
+            if patch.success and not skip_run and result.candidates:
+                best = _pick_best_candidate(result.candidates, flow)
+                sep("STEP 3 — Cypress run")
+                _run_spec(best.spec_file, connector, repo, verbose)
+            return
+
+        # ── Strategy B: MISSING_CONFIG ────────────────────────────────────────
+        if cc_status == CoverageStatus.MISSING_CONFIG:
+            cc           = result.connector_check
+            flow_name    = cc.flow_name if cc else _trigger_path_to_flow_name(result.trigger_paths)
+            insert_after = _last_flow_in_connector(repo, connector_rel)
+            list_key     = _flow_to_list_key(result)
+
+            sep("STEP 2 — Build context (insert_flow_block)")
+
+            # Reference: real blocks from other connectors that already have this flow
+            # Ordered by size ASC so LLM sees the simplest pattern first
+            ref_rows = q.get_reference_blocks(flow_name, exclude_connector=connector)
+
+            if ref_rows:
+                ref_lines = [
+                    f"\n\n## Existing {flow_name} blocks from other connectors",
+                    "These are real blocks. Pick the most common pattern and adapt it:",
+                ]
+                for ref in ref_rows[:3]:
+                    ref_lines += [f"\n### {ref['connector']}", f"```javascript\n{ref['block'][:800]}\n```"]
+                ref_block_section = "\n".join(ref_lines)
+            elif cc and cc.reference_block:
+                ref_block_section = (
+                    f"\n\n## Reference block (from {cc.reference_connector})\n"
+                    f"```javascript\n{cc.reference_block[:2000]}\n```"
+                )
+            else:
+                ref_block_section = ""
+
+            style_example = _get_style_example(repo, connector_rel)
+
+            prompt = f"""You must add a new flow config block to {connector}.js for the {flow_name} flow.
+
+## What to generate
+A single JavaScript object block for `{flow_name}` inside `connectorDetails.card_pm`.
+Insert it after the `{insert_after}` block.
+
+## Required output format
+<new_flow_block>
+{flow_name}: {{
+  Request: {{
+    // fields for {flow_name}
+  }},
+  Response: {{
+    status: 200,
+    body: {{
+      status: "...",
+    }},
+  }},
+}},
+</new_flow_block>
+
+## {connector} formatting style
+```javascript
+{style_example}
+```
+{ref_block_section}
+
+## Rules
+- Output ONLY the <new_flow_block>...</new_flow_block> tag
+- No imports, no describe()/it() blocks — config only
+- No markdown outside the tag
+- Response status: "cancelled" for Void, "pending" for Refund/SyncRefund, "succeeded" for Capture
+"""
+            print(f"  Target        : {connector_rel}")
+            print(f"  Flow to add   : {flow_name}")
+            print(f"  Insert after  : {insert_after}")
+            print(f"  List key      : {list_key or '(none)'}")
+            print(f"  Reference     : {len(ref_rows)} Neo4j block(s)" +
+                  (f" [{', '.join(r['connector'] for r in ref_rows[:3])}]" if ref_rows else ""))
+            print(f"  Prompt tokens : ~{len(prompt)//4:,}")
+            if verbose: sep("Prompt"); print(prompt)
+            if dry_run:
+                print("\n  (dry-run — no files written)")
+                return
+
+            sep("STEP 3 — Codegen: insert_flow_block")
+            patch = cg.apply(ContextBundle(
+                connector=connector, flow=str(flow.get("flow_id", "")),
+                status=Status.MISSING_CONFIG, prompt=prompt,
+                system_prompt=(
+                    "You are a senior engineer on the Hyperswitch cypress test suite. "
+                    "Output ONLY the requested XML tag — no explanation, no markdown."
+                ),
+                files_to_edit=[connector_rel, utils_rel],
+                patch_meta={
+                    "type": "insert_flow_block",
+                    "target_file": connector_rel,
+                    "insert_after": insert_after,
+                    **( {"allowlist_file": utils_rel, "allowlist_key": list_key,
+                          "connector_name": connector.lower()} if list_key else {} ),
+                },
+            ))
+            print(f"  {patch.summary()}")
+            if not patch.success:
+                print(f"\n❌ Codegen failed: {patch.error}")
+                return
+            if verbose and patch.llm_response:
+                sep("LLM response"); print(patch.llm_response)
+            if not skip_run:
+                candidates = q._find_covering_specs(result.trigger_paths)
+                best = _pick_best_candidate(candidates, flow) if candidates else None
+                if best:
+                    _run_and_autofix(best.spec_file, connector, repo, verbose,
+                                     connector_rel, flow_name)
+                else:
+                    print("  ⚠️  No spec found after patching — reindex and retry")
+            return
+
+        # ── Strategy C: MISSING — generate new spec ───────────────────────────
+        sep("STEP 2 — Build context (full_file_rewrite)")
+        bundle = build_flow_context(result, repo, q)
+        print(f"  Spec target   : {bundle.spec_to_create}")
+        print(f"  Prompt tokens : ~{len(bundle.prompt) // 4:,}")
+        if verbose: sep("Prompt"); print(bundle.prompt)
+        if dry_run:
+            print("\n  (dry-run — no files written)")
+            return
+
+        sep("STEP 3 — Codegen: generate spec file")
+        patch = cg.apply(ContextBundle(
+            connector=f"flow_{flow.get('flow_id', '')}",
+            flow=bundle.description, status=Status.MISSING_TEST,
+            prompt=bundle.prompt, system_prompt=bundle.system_prompt,
+            files_to_edit=bundle.files_to_edit, patch_meta=bundle.patch_meta,
+        ))
+        print(f"  {patch.summary()}")
+        if not patch.success:
+            print(f"\n❌ Codegen failed: {patch.error}")
+            if patch.llm_response:
+                print(f"\nLLM response:\n{patch.llm_response[:500]}")
+            return
+        if verbose and patch.llm_response:
+            sep("LLM response"); print(patch.llm_response)
+        if not skip_run:
+            spec_file = patch.files_changed[0] if patch.files_changed else bundle.spec_to_create
+            sep("STEP 4 — Cypress run")
+            _run_spec(spec_file, repo=repo, connector="", verbose=verbose)
+
+    finally:
+        q.close()
+        try: idx.close()
+        except Exception: pass
+
+
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser(
-        description="Run the full pipeline for a flow_id JSON"
-    )
-    ap.add_argument("--flow",      required=True,
-                    help="Flow JSON: file path, '-' for stdin, or inline JSON string")
-    ap.add_argument("--repo",      default=os.environ.get("CYPRESS_REPO", "."),
-                    help="Path to cypress-tests root (or set CYPRESS_REPO env var)")
-    ap.add_argument("--dry-run",   action="store_true",
-                    help="Show what would happen without writing files or running cypress")
-    ap.add_argument("--run-only",  action="store_true",
-                    help="Skip codegen, just run the cypress spec if it exists")
-    ap.add_argument("--skip-run",  action="store_true",
-                    help="Generate the spec but skip the cypress run")
-    ap.add_argument("--verbose",   action="store_true",
-                    help="Print the full LLM prompt and cypress output")
+    ap = argparse.ArgumentParser(description="Run the full flow pipeline")
+    ap.add_argument("--flow",     required=True,
+                    help="Flow JSON: file path, '-' for stdin, or inline JSON")
+    ap.add_argument("--repo",     default=os.environ.get("CYPRESS_REPO", "."),
+                    help="cypress-tests root (or set CYPRESS_REPO)")
+    ap.add_argument("--dry-run",  action="store_true")
+    ap.add_argument("--run-only", action="store_true",
+                    help="Skip codegen, just run the existing spec")
+    ap.add_argument("--skip-run", action="store_true",
+                    help="Generate/patch but skip the cypress run")
+    ap.add_argument("--verbose",  action="store_true")
     args = ap.parse_args()
 
     print("Config:")
     print(f"  Repo       : {args.repo}")
     print(f"  Neo4j      : {NEO4J_URI}")
-    print(f"  Grid URL   : {GRID_URL or '(GRID_BASE_URL not set)'}")
+    print(f"  Grid URL   : {GRID_URL or '(not set)'}")
     print(f"  Grid model : {GRID_MODEL}")
     print(f"  Cypress URL: {CY_BASE_URL}")
 
@@ -620,20 +725,14 @@ if __name__ == "__main__":
         sys.exit(1)
 
     if len(flows) > 1:
-        print(f"Document contains {len(flows)} flows.")
-        changed = data.get("changed_function", "")
-        if changed:
-            print(f"Changed function: {changed}")
+        print(f"\nDocument contains {len(flows)} flows.")
+        if data.get("changed_function"):
+            print(f"Changed function: {data['changed_function']}")
         print()
 
     for flow in flows:
-        run_flow_pipeline(
-            flow     = flow,
-            repo     = args.repo,
-            dry_run  = args.dry_run,
-            skip_run = args.skip_run,
-            run_only = args.run_only,
-            verbose  = args.verbose,
-        )
+        run_flow_pipeline(flow=flow, repo=args.repo, dry_run=args.dry_run,
+                          skip_run=args.skip_run, run_only=args.run_only,
+                          verbose=args.verbose)
         if len(flows) > 1:
-            print()  # spacing between flows
+            print()

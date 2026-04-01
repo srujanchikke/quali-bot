@@ -307,13 +307,43 @@ class CypressRunner:
 
         return cmd
 
-    def _setup_specs(self) -> list[str]:
-        """Return the setup spec files that must run before payment tests."""
-        return [
+    # Flows that need a prior payment in globalState (in addition to account/customer/connector).
+    # These flows operate on an existing payment, so a payment must be created and confirmed
+    # before the test spec runs.
+    #
+    # MANUAL_CAPTURE_FLOWS: need a payment in `requires_capture` state
+    #   → prepend 00006-NoThreeDSManualCapture (create + confirm, not auto-captured)
+    # AUTO_CAPTURE_FLOWS: need a captured payment (e.g. for refund)
+    #   → prepend 00004-NoThreeDSAutoCapture (create + confirm, auto-captured)
+    MANUAL_CAPTURE_FLOWS: set[str] = {
+        "IncrementalAuth",
+        "VoidAfterConfirm",
+        "Capture",
+        "SyncPayment",
+    }
+    AUTO_CAPTURE_FLOWS: set[str] = {
+        "Refund",
+        "SyncRefund",
+    }
+
+    def _setup_specs(self, flow_name: str = "") -> list[str]:
+        """Return the setup spec files that must run before payment tests.
+
+        For flows that operate on an existing payment (void, capture,
+        incremental auth, refund) a payment creation spec is prepended so
+        that globalState carries a valid paymentId and any saved-card body
+        when the target spec starts.
+        """
+        base = [
             "cypress/e2e/spec/Payment/00001-AccountCreate.cy.js",
             "cypress/e2e/spec/Payment/00002-CustomerCreate.cy.js",
             "cypress/e2e/spec/Payment/00003-ConnectorCreate.cy.js",
         ]
+        if flow_name in self.MANUAL_CAPTURE_FLOWS:
+            base.append("cypress/e2e/spec/Payment/00006-NoThreeDSManualCapture.cy.js")
+        elif flow_name in self.AUTO_CAPTURE_FLOWS:
+            base.append("cypress/e2e/spec/Payment/00004-NoThreeDSAutoCapture.cy.js")
+        return base
 
     def run(
         self,
@@ -331,7 +361,10 @@ class CypressRunner:
             flow:       Flow name e.g. "Overcapture"
             spec_file:  Override spec file (optional)
             extra_env:  Extra cypress env vars
-            setup:      If True, run 00001-00003 setup specs first (MODE 1)
+            setup:      If True, run 00001-00003 setup specs first (MODE 1).
+                        Flow-specific prerequisite specs (e.g. a payment creation
+                        spec) are automatically added when `flow` matches a known
+                        pattern in MANUAL_CAPTURE_FLOWS / AUTO_CAPTURE_FLOWS.
         """
         # Resolve spec file
         if not spec_file:
@@ -348,9 +381,10 @@ class CypressRunner:
         # Build spec list — setup specs must be in the SAME cypress run
         # as the test spec so globalState persists across specs
         if setup:
-            all_specs = ",".join(self._setup_specs() + [spec_file])
+            setup_specs = self._setup_specs(flow_name=flow)
+            all_specs = ",".join(setup_specs + [spec_file])
             print("  Running setup + test in one cypress process (globalState must persist):")
-            print(f"    setup: {[s.split('/')[-1] for s in self._setup_specs()]}")
+            print(f"    setup: {[s.split('/')[-1] for s in setup_specs]}")
             print(f"    test:  {spec_file.split('/')[-1]}")
         else:
             all_specs = spec_file

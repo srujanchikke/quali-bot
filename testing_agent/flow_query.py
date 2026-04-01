@@ -50,6 +50,12 @@ FLOW_FEATURE_LIST: dict[str, str] = {
     "PaymentWebhook":"INCLUDE.PAYMENTS_WEBHOOK",
 }
 
+# Flows where a connector may be explicitly EXCLUDED (should not run even if config exists)
+# Maps flow name → the EXCLUDE.* key in Utils.js CONNECTOR_LISTS
+FLOW_EXCLUDE_LIST: dict[str, str] = {
+    "ConnectorAgnosticNTID": "EXCLUDE.CONNECTOR_AGNOSTIC_NTID",
+}
+
 class CoverageStatus:
     COVERED="COVERED"; MISSING="MISSING"; MISSING_CONFIG="MISSING_CONFIG"
     NOT_IN_ALLOWLIST="NOT_IN_ALLOWLIST"; MISSING_TEST="MISSING_TEST"
@@ -317,7 +323,12 @@ class FlowQueryEngine:
                 result.what_to_fix=["Add `"+flow_name+"` block to `configs/Payment/"+c+".js`"]
                 ref=s.run("""
                     MATCH (rc:Connector)-[:HAS_CONFIG]->(fc:FlowConfig)-[:FOR_FLOW]->(f:Flow {name:$f})
-                    WHERE rc.name<>$c RETURN rc.name AS name,fc.raw_block AS block LIMIT 1
+                    WHERE rc.name<>$c
+                      AND NOT fc.raw_block STARTS WITH '{'
+                      AND NOT fc.raw_block CONTAINS '// commenting out'
+                    RETURN rc.name AS name, fc.raw_block AS block
+                    ORDER BY rc.name
+                    LIMIT 1
                 """,f=flow_name,c=c).single()
                 result.connector_check=ConnectorCheck(connector=c,flow_name=flow_name,
                     status=CoverageStatus.MISSING_CONFIG,
@@ -325,6 +336,21 @@ class FlowQueryEngine:
                     reference_block=ref["block"] if ref else "")
                 return result
             raw=r_a["rb"] or ""
+
+            # Fix 3: check EXCLUDE list — if connector is explicitly excluded, stop
+            fexcl=FLOW_EXCLUDE_LIST.get(flow_name)
+            if fexcl:
+                r_excl=s.run(
+                    "MATCH (c:Connector {name:$c})-[:IN_LIST]->(l:FeatureList {key:$k}) RETURN l",
+                    c=c,k=fexcl).single()
+                if r_excl:
+                    result.status=CoverageStatus.COVERED  # excluded = intentionally skip
+                    result.what_to_fix=[connector+" is in EXCLUDE list for "+flow_name]
+                    result.connector_check=ConnectorCheck(
+                        connector=c,flow_name=flow_name,
+                        status=CoverageStatus.COVERED,raw_block=raw)
+                    return result
+
             if fgl:
                 r_b=s.run("MATCH (c:Connector {name:$c})-[:IN_LIST]->(l:FeatureList {key:$k}) RETURN l.connectors AS m",
                     c=c,k=fgl).single()
@@ -406,6 +432,31 @@ class FlowQueryEngine:
                 res[sf]["_seen"].add(row["name"])
         for sf in res: res[sf]["endpoints_covered"]=sorted(res[sf]["endpoints_covered"]); del res[sf]["_seen"]
         return res
+
+
+    def get_reference_blocks(self, flow_name: str, exclude_connector: str = "",
+                              limit: int = 5) -> list[dict]:
+        """
+        Find existing config blocks for a flow across all connectors.
+        Returns blocks ordered by size ASC (simplest/shortest first = best reference).
+        Filters out commented-out blocks so LLM gets real usable examples.
+
+        Used to give LLM the most common pattern for a flow it needs to generate,
+        rather than relying on a single alphabetically-first connector.
+        """
+        with self.driver.session() as s:
+            rows = s.run("""
+                MATCH (c:Connector)-[:HAS_CONFIG]->(fc:FlowConfig)
+                      -[:FOR_FLOW]->(f:Flow {name:$flow})
+                WHERE ($exclude = "" OR c.name <> $exclude)
+                  AND NOT fc.raw_block CONTAINS '// commenting out'
+                  AND NOT fc.raw_block STARTS WITH '{'
+                  AND size(fc.raw_block) > 50
+                RETURN fc.raw_block AS block, c.name AS connector
+                ORDER BY size(fc.raw_block) ASC
+                LIMIT $limit
+            """, flow=flow_name, exclude=exclude_connector or "", limit=limit).data()
+        return [{"connector": r["connector"], "block": r["block"]} for r in rows]
 
     def coverage_gap(self,flow_name:str)->dict:
         with self.driver.session() as s:
