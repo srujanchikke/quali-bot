@@ -1,0 +1,5433 @@
+{
+  "changed_function": "Adyen#ConnectorCommon#get_auth_header",
+  "changed_file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+  "changed_line": 124,
+  "function": "Adyen#ConnectorCommon#get_auth_header",
+  "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+  "def_line": 124,
+  "endpoint_count": 31,
+  "flow_count": 17,
+  "endpoints": [
+    {
+      "method": "POST",
+      "path": "/authentication/{authentication_id}/authenticate",
+      "handler": "authentication_authenticate",
+      "call_chain": [
+        "authentication_authenticate",
+        "authentication_authenticate_core",
+        "ExternalAuthentication#UnifiedAuthenticationService#authentication",
+        "do_auth_connector_call",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guards": [
+        {
+          "at_hop": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request \u2192 Adyen#ConnectorIntegration#build_request",
+          "guard_type": "match",
+          "condition": "self"
+        },
+        {
+          "at_hop": "execute_connector_processing_step \u2192 ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "guard_type": "match",
+          "condition": "connector_request"
+        }
+      ],
+      "depth": 8,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/authentication/{authentication_id}/eligibility",
+      "handler": "authentication_eligibility",
+      "call_chain": [
+        "authentication_eligibility",
+        "authentication_eligibility_core",
+        "ExternalAuthentication#UnifiedAuthenticationService#pre_authentication",
+        "do_auth_connector_call",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guards": [
+        {
+          "at_hop": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request \u2192 Adyen#ConnectorIntegration#build_request",
+          "guard_type": "match",
+          "condition": "self"
+        },
+        {
+          "at_hop": "execute_connector_processing_step \u2192 ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "guard_type": "match",
+          "condition": "connector_request"
+        }
+      ],
+      "depth": 8,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/authentication/{merchant_id}/{authentication_id}/redirect",
+      "handler": "authentication_sync_post_update",
+      "call_chain": [
+        "authentication_sync_post_update",
+        "authentication_post_sync_core",
+        "ExternalAuthentication#UnifiedAuthenticationService#post_authentication",
+        "do_auth_connector_call",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guards": [
+        {
+          "at_hop": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request \u2192 Adyen#ConnectorIntegration#build_request",
+          "guard_type": "match",
+          "condition": "self"
+        },
+        {
+          "at_hop": "execute_connector_processing_step \u2192 ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "guard_type": "match",
+          "condition": "connector_request"
+        }
+      ],
+      "depth": 8,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/authentication/{merchant_id}/{authentication_id}/sync",
+      "handler": "authentication_sync",
+      "call_chain": [
+        "authentication_sync",
+        "authentication_sync_core",
+        "do_auth_connector_call",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guards": [
+        {
+          "at_hop": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request \u2192 Adyen#ConnectorIntegration#build_request",
+          "guard_type": "match",
+          "condition": "self"
+        },
+        {
+          "at_hop": "execute_connector_processing_step \u2192 ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "guard_type": "match",
+          "condition": "connector_request"
+        },
+        {
+          "at_hop": "authentication_sync_core \u2192 do_auth_connector_call",
+          "guard_type": "if",
+          "condition": "authentication_connector.is_pre_auth_required_in_post_authn_flow()"
+        }
+      ],
+      "depth": 7,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/disputes/evidence",
+      "handler": "submit_dispute_evidence",
+      "call_chain": [
+        "submit_dispute_evidence",
+        "submit_evidence",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guards": [
+        {
+          "at_hop": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request \u2192 Adyen#ConnectorIntegration#build_request",
+          "guard_type": "match",
+          "condition": "self"
+        },
+        {
+          "at_hop": "execute_connector_processing_step \u2192 ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "guard_type": "match",
+          "condition": "connector_request"
+        }
+      ],
+      "depth": 6,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      }
+    },
+    {
+      "method": "PUT",
+      "path": "/disputes/evidence",
+      "handler": "attach_dispute_evidence",
+      "call_chain": [
+        "attach_dispute_evidence",
+        "attach_evidence",
+        "files_create_core",
+        "upload_and_get_provider_provider_file_id_profile_id",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guards": [
+        {
+          "at_hop": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request \u2192 Adyen#ConnectorIntegration#build_request",
+          "guard_type": "match",
+          "condition": "self"
+        },
+        {
+          "at_hop": "execute_connector_processing_step \u2192 ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "guard_type": "match",
+          "condition": "connector_request"
+        },
+        {
+          "at_hop": "upload_and_get_provider_provider_file_id_profile_id \u2192 execute_connector_processing_step",
+          "guard_type": "if",
+          "condition": "connector_data.connector_name.supports_file_storage_module()"
+        }
+      ],
+      "depth": 8,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/disputes/{connector_id}/fetch",
+      "handler": "fetch_disputes",
+      "call_chain": [
+        "fetch_disputes",
+        "connector_sync_disputes",
+        "fetch_disputes_from_connector",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guards": [
+        {
+          "at_hop": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request \u2192 Adyen#ConnectorIntegration#build_request",
+          "guard_type": "match",
+          "condition": "self"
+        },
+        {
+          "at_hop": "execute_connector_processing_step \u2192 ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "guard_type": "match",
+          "condition": "connector_request"
+        }
+      ],
+      "depth": 7,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/files",
+      "handler": "files_create",
+      "call_chain": [
+        "files_create",
+        "files_create_core",
+        "upload_and_get_provider_provider_file_id_profile_id",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guards": [
+        {
+          "at_hop": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request \u2192 Adyen#ConnectorIntegration#build_request",
+          "guard_type": "match",
+          "condition": "self"
+        },
+        {
+          "at_hop": "execute_connector_processing_step \u2192 ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "guard_type": "match",
+          "condition": "connector_request"
+        },
+        {
+          "at_hop": "upload_and_get_provider_provider_file_id_profile_id \u2192 execute_connector_processing_step",
+          "guard_type": "if",
+          "condition": "connector_data.connector_name.supports_file_storage_module()"
+        }
+      ],
+      "depth": 7,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/files/{file_id}",
+      "handler": "files_retrieve",
+      "call_chain": [
+        "files_retrieve",
+        "files_retrieve_core",
+        "retrieve_file_and_provider_file_id_from_file_id",
+        "retrieve_file_from_connector",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guards": [
+        {
+          "at_hop": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request \u2192 Adyen#ConnectorIntegration#build_request",
+          "guard_type": "match",
+          "condition": "self"
+        },
+        {
+          "at_hop": "execute_connector_processing_step \u2192 ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "guard_type": "match",
+          "condition": "connector_request"
+        },
+        {
+          "at_hop": "retrieve_file_and_provider_file_id_from_file_id \u2192 retrieve_file_from_connector",
+          "guard_type": "match",
+          "condition": "is_connector_file_data_required"
+        }
+      ],
+      "depth": 8,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/payments/redirect/{payment_id}/{merchant_id}/{attempt_id}",
+      "handler": "payments_start",
+      "call_chain": [
+        "payments_start",
+        "payments_core",
+        "payments_operation_core",
+        "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guards": [
+        {
+          "at_hop": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request \u2192 Adyen#ConnectorIntegration#build_request",
+          "guard_type": "match",
+          "condition": "self"
+        },
+        {
+          "at_hop": "execute_connector_processing_step \u2192 ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "guard_type": "match",
+          "condition": "connector_request"
+        },
+        {
+          "at_hop": "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation \u2192 execute_connector_processing_step",
+          "guard_type": "if",
+          "condition": "is_tax_connector_enabled && !skip_external_tax_calculation"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+          "guard_type": "if_let",
+          "condition": "let Some(connector_details) = connector"
+        }
+      ],
+      "depth": 8,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/payments/session_tokens",
+      "handler": "payments_connector_session",
+      "call_chain": [
+        "payments_connector_session",
+        "payments_core",
+        "payments_operation_core",
+        "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guards": [
+        {
+          "at_hop": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request \u2192 Adyen#ConnectorIntegration#build_request",
+          "guard_type": "match",
+          "condition": "self"
+        },
+        {
+          "at_hop": "execute_connector_processing_step \u2192 ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "guard_type": "match",
+          "condition": "connector_request"
+        },
+        {
+          "at_hop": "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation \u2192 execute_connector_processing_step",
+          "guard_type": "if",
+          "condition": "is_tax_connector_enabled && !skip_external_tax_calculation"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+          "guard_type": "if_let",
+          "condition": "let Some(connector_details) = connector"
+        }
+      ],
+      "depth": 8,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/payments/sync",
+      "handler": "payments_retrieve_with_gateway_creds",
+      "call_chain": [
+        "payments_retrieve_with_gateway_creds",
+        "payments_core",
+        "payments_operation_core",
+        "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guards": [
+        {
+          "at_hop": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request \u2192 Adyen#ConnectorIntegration#build_request",
+          "guard_type": "match",
+          "condition": "self"
+        },
+        {
+          "at_hop": "execute_connector_processing_step \u2192 ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "guard_type": "match",
+          "condition": "connector_request"
+        },
+        {
+          "at_hop": "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation \u2192 execute_connector_processing_step",
+          "guard_type": "if",
+          "condition": "is_tax_connector_enabled && !skip_external_tax_calculation"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+          "guard_type": "if_let",
+          "condition": "let Some(connector_details) = connector"
+        }
+      ],
+      "depth": 8,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/payments/{payment_id}",
+      "handler": "payments_retrieve",
+      "call_chain": [
+        "payments_retrieve",
+        "payments_core",
+        "payments_operation_core",
+        "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guards": [
+        {
+          "at_hop": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request \u2192 Adyen#ConnectorIntegration#build_request",
+          "guard_type": "match",
+          "condition": "self"
+        },
+        {
+          "at_hop": "execute_connector_processing_step \u2192 ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "guard_type": "match",
+          "condition": "connector_request"
+        },
+        {
+          "at_hop": "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation \u2192 execute_connector_processing_step",
+          "guard_type": "if",
+          "condition": "is_tax_connector_enabled && !skip_external_tax_calculation"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+          "guard_type": "if_let",
+          "condition": "let Some(connector_details) = connector"
+        }
+      ],
+      "depth": 8,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/payments/{payment_id}/3ds/authentication",
+      "handler": "payments_external_authentication",
+      "call_chain": [
+        "payments_external_authentication",
+        "payment_external_authentication",
+        "ExternalAuthentication#UnifiedAuthenticationService#authentication",
+        "do_auth_connector_call",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guards": [
+        {
+          "at_hop": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request \u2192 Adyen#ConnectorIntegration#build_request",
+          "guard_type": "match",
+          "condition": "self"
+        },
+        {
+          "at_hop": "execute_connector_processing_step \u2192 ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "guard_type": "match",
+          "condition": "connector_request"
+        },
+        {
+          "at_hop": "payment_external_authentication \u2192 ExternalAuthentication#UnifiedAuthenticationService#authentication",
+          "guard_type": "if",
+          "condition": "helpers::is_merchant_eligible_authentication_service(\n        platform.get_processor().get_account().get_id(),\n        &state,\n    )\n    .await?"
+        }
+      ],
+      "depth": 8,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/payments/{payment_id}/approve",
+      "handler": "payments_approve",
+      "call_chain": [
+        "payments_approve",
+        "payments_core",
+        "payments_operation_core",
+        "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guards": [
+        {
+          "at_hop": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request \u2192 Adyen#ConnectorIntegration#build_request",
+          "guard_type": "match",
+          "condition": "self"
+        },
+        {
+          "at_hop": "execute_connector_processing_step \u2192 ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "guard_type": "match",
+          "condition": "connector_request"
+        },
+        {
+          "at_hop": "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation \u2192 execute_connector_processing_step",
+          "guard_type": "if",
+          "condition": "is_tax_connector_enabled && !skip_external_tax_calculation"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+          "guard_type": "if_let",
+          "condition": "let Some(connector_details) = connector"
+        }
+      ],
+      "depth": 8,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/payments/{payment_id}/calculate_tax",
+      "handler": "payments_dynamic_tax_calculation",
+      "call_chain": [
+        "payments_dynamic_tax_calculation",
+        "payments_core",
+        "payments_operation_core",
+        "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guards": [
+        {
+          "at_hop": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request \u2192 Adyen#ConnectorIntegration#build_request",
+          "guard_type": "match",
+          "condition": "self"
+        },
+        {
+          "at_hop": "execute_connector_processing_step \u2192 ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "guard_type": "match",
+          "condition": "connector_request"
+        },
+        {
+          "at_hop": "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation \u2192 execute_connector_processing_step",
+          "guard_type": "if",
+          "condition": "is_tax_connector_enabled && !skip_external_tax_calculation"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+          "guard_type": "if_let",
+          "condition": "let Some(connector_details) = connector"
+        }
+      ],
+      "depth": 8,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/payments/{payment_id}/cancel",
+      "handler": "payments_cancel",
+      "call_chain": [
+        "payments_cancel",
+        "payments_core",
+        "payments_operation_core",
+        "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guards": [
+        {
+          "at_hop": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request \u2192 Adyen#ConnectorIntegration#build_request",
+          "guard_type": "match",
+          "condition": "self"
+        },
+        {
+          "at_hop": "execute_connector_processing_step \u2192 ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "guard_type": "match",
+          "condition": "connector_request"
+        },
+        {
+          "at_hop": "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation \u2192 execute_connector_processing_step",
+          "guard_type": "if",
+          "condition": "is_tax_connector_enabled && !skip_external_tax_calculation"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+          "guard_type": "if_let",
+          "condition": "let Some(connector_details) = connector"
+        }
+      ],
+      "depth": 8,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/payments/{payment_id}/cancel_post_capture",
+      "handler": "payments_cancel_post_capture",
+      "call_chain": [
+        "payments_cancel_post_capture",
+        "payments_core",
+        "payments_operation_core",
+        "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guards": [
+        {
+          "at_hop": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request \u2192 Adyen#ConnectorIntegration#build_request",
+          "guard_type": "match",
+          "condition": "self"
+        },
+        {
+          "at_hop": "execute_connector_processing_step \u2192 ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "guard_type": "match",
+          "condition": "connector_request"
+        },
+        {
+          "at_hop": "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation \u2192 execute_connector_processing_step",
+          "guard_type": "if",
+          "condition": "is_tax_connector_enabled && !skip_external_tax_calculation"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+          "guard_type": "if_let",
+          "condition": "let Some(connector_details) = connector"
+        }
+      ],
+      "depth": 8,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/payments/{payment_id}/capture",
+      "handler": "payments_capture",
+      "call_chain": [
+        "payments_capture",
+        "payments_core",
+        "payments_operation_core",
+        "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guards": [
+        {
+          "at_hop": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request \u2192 Adyen#ConnectorIntegration#build_request",
+          "guard_type": "match",
+          "condition": "self"
+        },
+        {
+          "at_hop": "execute_connector_processing_step \u2192 ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "guard_type": "match",
+          "condition": "connector_request"
+        },
+        {
+          "at_hop": "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation \u2192 execute_connector_processing_step",
+          "guard_type": "if",
+          "condition": "is_tax_connector_enabled && !skip_external_tax_calculation"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+          "guard_type": "if_let",
+          "condition": "let Some(connector_details) = connector"
+        }
+      ],
+      "depth": 8,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/payments/{payment_id}/complete_authorize",
+      "handler": "payments_complete_authorize",
+      "call_chain": [
+        "payments_complete_authorize",
+        "payments_core",
+        "payments_operation_core",
+        "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guards": [
+        {
+          "at_hop": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request \u2192 Adyen#ConnectorIntegration#build_request",
+          "guard_type": "match",
+          "condition": "self"
+        },
+        {
+          "at_hop": "execute_connector_processing_step \u2192 ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "guard_type": "match",
+          "condition": "connector_request"
+        },
+        {
+          "at_hop": "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation \u2192 execute_connector_processing_step",
+          "guard_type": "if",
+          "condition": "is_tax_connector_enabled && !skip_external_tax_calculation"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+          "guard_type": "if_let",
+          "condition": "let Some(connector_details) = connector"
+        }
+      ],
+      "depth": 8,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/payments/{payment_id}/extend_authorization",
+      "handler": "payments_extend_authorization",
+      "call_chain": [
+        "payments_extend_authorization",
+        "payments_core",
+        "payments_operation_core",
+        "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guards": [
+        {
+          "at_hop": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request \u2192 Adyen#ConnectorIntegration#build_request",
+          "guard_type": "match",
+          "condition": "self"
+        },
+        {
+          "at_hop": "execute_connector_processing_step \u2192 ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "guard_type": "match",
+          "condition": "connector_request"
+        },
+        {
+          "at_hop": "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation \u2192 execute_connector_processing_step",
+          "guard_type": "if",
+          "condition": "is_tax_connector_enabled && !skip_external_tax_calculation"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+          "guard_type": "if_let",
+          "condition": "let Some(connector_details) = connector"
+        }
+      ],
+      "depth": 8,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/payments/{payment_id}/incremental_authorization",
+      "handler": "payments_incremental_authorization",
+      "call_chain": [
+        "payments_incremental_authorization",
+        "payments_core",
+        "payments_operation_core",
+        "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guards": [
+        {
+          "at_hop": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request \u2192 Adyen#ConnectorIntegration#build_request",
+          "guard_type": "match",
+          "condition": "self"
+        },
+        {
+          "at_hop": "execute_connector_processing_step \u2192 ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "guard_type": "match",
+          "condition": "connector_request"
+        },
+        {
+          "at_hop": "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation \u2192 execute_connector_processing_step",
+          "guard_type": "if",
+          "condition": "is_tax_connector_enabled && !skip_external_tax_calculation"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+          "guard_type": "if_let",
+          "condition": "let Some(connector_details) = connector"
+        }
+      ],
+      "depth": 8,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/payments/{payment_id}/post_session_tokens",
+      "handler": "payments_post_session_tokens",
+      "call_chain": [
+        "payments_post_session_tokens",
+        "payments_core",
+        "payments_operation_core",
+        "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guards": [
+        {
+          "at_hop": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request \u2192 Adyen#ConnectorIntegration#build_request",
+          "guard_type": "match",
+          "condition": "self"
+        },
+        {
+          "at_hop": "execute_connector_processing_step \u2192 ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "guard_type": "match",
+          "condition": "connector_request"
+        },
+        {
+          "at_hop": "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation \u2192 execute_connector_processing_step",
+          "guard_type": "if",
+          "condition": "is_tax_connector_enabled && !skip_external_tax_calculation"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+          "guard_type": "if_let",
+          "condition": "let Some(connector_details) = connector"
+        }
+      ],
+      "depth": 8,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/payments/{payment_id}/reject",
+      "handler": "payments_reject",
+      "call_chain": [
+        "payments_reject",
+        "payments_core",
+        "payments_operation_core",
+        "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guards": [
+        {
+          "at_hop": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request \u2192 Adyen#ConnectorIntegration#build_request",
+          "guard_type": "match",
+          "condition": "self"
+        },
+        {
+          "at_hop": "execute_connector_processing_step \u2192 ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "guard_type": "match",
+          "condition": "connector_request"
+        },
+        {
+          "at_hop": "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation \u2192 execute_connector_processing_step",
+          "guard_type": "if",
+          "condition": "is_tax_connector_enabled && !skip_external_tax_calculation"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+          "guard_type": "if_let",
+          "condition": "let Some(connector_details) = connector"
+        }
+      ],
+      "depth": 8,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/payments/{payment_id}/update_metadata",
+      "handler": "payments_update_metadata",
+      "call_chain": [
+        "payments_update_metadata",
+        "payments_core",
+        "payments_operation_core",
+        "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guards": [
+        {
+          "at_hop": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request \u2192 Adyen#ConnectorIntegration#build_request",
+          "guard_type": "match",
+          "condition": "self"
+        },
+        {
+          "at_hop": "execute_connector_processing_step \u2192 ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "guard_type": "match",
+          "condition": "connector_request"
+        },
+        {
+          "at_hop": "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation \u2192 execute_connector_processing_step",
+          "guard_type": "if",
+          "condition": "is_tax_connector_enabled && !skip_external_tax_calculation"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+          "guard_type": "if_let",
+          "condition": "let Some(connector_details) = connector"
+        }
+      ],
+      "depth": 8,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/subscriptions/items",
+      "handler": "get_subscription_items",
+      "call_chain": [
+        "get_subscription_items",
+        "BillingHandler#get_subscription_items",
+        "BillingHandler#call_connector",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guards": [
+        {
+          "at_hop": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request \u2192 Adyen#ConnectorIntegration#build_request",
+          "guard_type": "match",
+          "condition": "self"
+        },
+        {
+          "at_hop": "execute_connector_processing_step \u2192 ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "guard_type": "match",
+          "condition": "connector_request"
+        }
+      ],
+      "depth": 7,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/subscriptions/list_with_count",
+      "handler": "customers_list_with_count",
+      "call_chain": [
+        "customers_list_with_count",
+        "list_customers_with_count",
+        "MockDb#CustomerInterface#list_customers_by_merchant_id_with_count",
+        "create_recipient_disburse_account",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guards": [
+        {
+          "at_hop": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request \u2192 Adyen#ConnectorIntegration#build_request",
+          "guard_type": "match",
+          "condition": "self"
+        },
+        {
+          "at_hop": "execute_connector_processing_step \u2192 ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "guard_type": "match",
+          "condition": "connector_request"
+        }
+      ],
+      "depth": 8,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/webhooks/frm_fulfillment",
+      "handler": "frm_fulfillment",
+      "call_chain": [
+        "frm_fulfillment",
+        "frm_fulfillment_core",
+        "make_fulfillment_api_call",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guards": [
+        {
+          "at_hop": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request \u2192 Adyen#ConnectorIntegration#build_request",
+          "guard_type": "match",
+          "condition": "self"
+        },
+        {
+          "at_hop": "execute_connector_processing_step \u2192 ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "guard_type": "match",
+          "condition": "connector_request"
+        },
+        {
+          "at_hop": "frm_fulfillment_core \u2192 make_fulfillment_api_call",
+          "guard_type": "if",
+          "condition": "(matches!(fraud_check.frm_transaction_type, FraudCheckType::PreFrm)\n                        && fraud_check.last_step == FraudCheckLastStep::TransactionOrRecordRefund)\n                        || (matches!(fraud_check.frm_transaction_type, FraudCheckType::PostFrm)\n                            && fraud_"
+        }
+      ],
+      "depth": 7,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/{payout_id}",
+      "handler": "payouts_retrieve",
+      "call_chain": [
+        "payouts_retrieve",
+        "payouts_retrieve_core",
+        "complete_payout_retrieve",
+        "create_payout_retrieve",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guards": [
+        {
+          "at_hop": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request \u2192 Adyen#ConnectorIntegration#build_request",
+          "guard_type": "match",
+          "condition": "self"
+        },
+        {
+          "at_hop": "execute_connector_processing_step \u2192 ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "guard_type": "match",
+          "condition": "connector_request"
+        },
+        {
+          "at_hop": "create_payout_retrieve \u2192 execute_connector_processing_step",
+          "guard_type": "match",
+          "condition": "helpers::should_continue_payout(&router_data)"
+        },
+        {
+          "at_hop": "complete_payout_retrieve \u2192 create_payout_retrieve",
+          "guard_type": "match",
+          "condition": "connector_call_type"
+        },
+        {
+          "at_hop": "payouts_retrieve_core \u2192 complete_payout_retrieve",
+          "guard_type": "if",
+          "condition": "matches!(req.force_sync, Some(true)) && helpers::should_call_retrieve(status)"
+        }
+      ],
+      "depth": 8,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/{payout_id}/cancel",
+      "handler": "payouts_cancel",
+      "call_chain": [
+        "payouts_cancel",
+        "payouts_cancel_core",
+        "cancel_payout",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guards": [
+        {
+          "at_hop": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request \u2192 Adyen#ConnectorIntegration#build_request",
+          "guard_type": "match",
+          "condition": "self"
+        },
+        {
+          "at_hop": "execute_connector_processing_step \u2192 ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "guard_type": "match",
+          "condition": "connector_request"
+        },
+        {
+          "at_hop": "payouts_cancel_core \u2192 cancel_payout",
+          "guard_type": "if",
+          "condition": "helpers::is_eligible_for_local_payout_cancellation(status)"
+        }
+      ],
+      "depth": 7,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/{payout_id}/fulfill",
+      "handler": "payouts_fulfill",
+      "call_chain": [
+        "payouts_fulfill",
+        "payouts_fulfill_core",
+        "fulfill_payout",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guards": [
+        {
+          "at_hop": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request \u2192 Adyen#ConnectorIntegration#build_request",
+          "guard_type": "match",
+          "condition": "self"
+        },
+        {
+          "at_hop": "execute_connector_processing_step \u2192 ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "guard_type": "match",
+          "condition": "connector_request"
+        },
+        {
+          "at_hop": "fulfill_payout \u2192 execute_connector_processing_step",
+          "guard_type": "match",
+          "condition": "helpers::should_continue_payout(&router_data)"
+        }
+      ],
+      "depth": 7,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      }
+    }
+  ],
+  "flows": [
+    {
+      "flow_id": 1,
+      "description": "connector_request + self",
+      "changed_function": "Adyen#ConnectorCommon#get_auth_header",
+      "changed_file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "changed_line": 124,
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/authentication/{authentication_id}/authenticate",
+          "handler": "authentication_authenticate"
+        }
+      ],
+      "prerequisites": [
+        {
+          "kind": "concrete_type",
+          "field": "operation_type",
+          "required_value": "Adyen",
+          "trait": "ConnectorCommon",
+          "trait_args": [],
+          "reason": "path only entered via ConnectorCommon|Adyen||get_auth_header",
+          "confidence": "high"
+        }
+      ],
+      "chain": [
+        {
+          "function": "authentication_authenticate",
+          "file": "crates/router/src/routes/authentication.rs",
+          "def_line": 84,
+          "role": "handler",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          },
+          "full_source": "pub async fn authentication_authenticate(\n    state: web::Data<app::AppState>,\n"
+        },
+        {
+          "function": "authentication_authenticate_core",
+          "file": "crates/router/src/core/unified_authentication_service.rs",
+          "def_line": 1249,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "ExternalAuthentication#UnifiedAuthenticationService#authentication",
+          "file": "crates/router/src/core/unified_authentication_service.rs",
+          "def_line": 454,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "do_auth_connector_call",
+          "file": "crates/router/src/core/unified_authentication_service/utils.rs",
+          "def_line": 45,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "execute_connector_processing_step",
+          "file": "crates/router/src/services/pm_auth.rs",
+          "def_line": 14,
+          "role": "intermediate",
+          "condition": {
+            "type": "match",
+            "text": "connector_request",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "file": "crates/hyperswitch_interfaces/src/connector_integration_interface.rs",
+          "def_line": 919,
+          "role": "intermediate",
+          "condition": {
+            "type": "match",
+            "text": "self",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "Adyen#ConnectorIntegration#build_request",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 509,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "Adyen#ConnectorIntegration#get_headers",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 462,
+          "role": "direct_caller",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          },
+          "full_source": "    fn get_headers(\n        &self,\n"
+        },
+        {
+          "function": "Adyen#ConnectorCommon#get_auth_header",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 124,
+          "role": "target"
+        }
+      ],
+      "connectors": [],
+      "connector_count": 0,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      },
+      "conditions_high": 2,
+      "conditions_missing": 0,
+      "setup_payloads": [],
+      "trigger_payload": {
+        "endpoint": "POST /authentication/{authentication_id}/authenticate",
+        "body": {
+          "connector": "adyen"
+        }
+      }
+    },
+    {
+      "flow_id": 2,
+      "description": "connector_request + self",
+      "changed_function": "Adyen#ConnectorCommon#get_auth_header",
+      "changed_file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "changed_line": 124,
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/authentication/{authentication_id}/eligibility",
+          "handler": "authentication_eligibility"
+        }
+      ],
+      "prerequisites": [
+        {
+          "kind": "concrete_type",
+          "field": "operation_type",
+          "required_value": "Adyen",
+          "trait": "ConnectorCommon",
+          "trait_args": [],
+          "reason": "path only entered via ConnectorCommon|Adyen||get_auth_header",
+          "confidence": "high"
+        }
+      ],
+      "chain": [
+        {
+          "function": "authentication_eligibility",
+          "file": "crates/router/src/routes/authentication.rs",
+          "def_line": 45,
+          "role": "handler",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          },
+          "full_source": "pub async fn authentication_eligibility(\n    state: web::Data<app::AppState>,\n"
+        },
+        {
+          "function": "authentication_eligibility_core",
+          "file": "crates/router/src/core/unified_authentication_service.rs",
+          "def_line": 1039,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "ExternalAuthentication#UnifiedAuthenticationService#pre_authentication",
+          "file": "crates/router/src/core/unified_authentication_service.rs",
+          "def_line": 348,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "do_auth_connector_call",
+          "file": "crates/router/src/core/unified_authentication_service/utils.rs",
+          "def_line": 45,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "execute_connector_processing_step",
+          "file": "crates/router/src/services/pm_auth.rs",
+          "def_line": 14,
+          "role": "intermediate",
+          "condition": {
+            "type": "match",
+            "text": "connector_request",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "file": "crates/hyperswitch_interfaces/src/connector_integration_interface.rs",
+          "def_line": 919,
+          "role": "intermediate",
+          "condition": {
+            "type": "match",
+            "text": "self",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "Adyen#ConnectorIntegration#build_request",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 509,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "Adyen#ConnectorIntegration#get_headers",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 462,
+          "role": "direct_caller",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          },
+          "full_source": "    fn get_headers(\n        &self,\n"
+        },
+        {
+          "function": "Adyen#ConnectorCommon#get_auth_header",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 124,
+          "role": "target"
+        }
+      ],
+      "connectors": [],
+      "connector_count": 0,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      },
+      "conditions_high": 2,
+      "conditions_missing": 0,
+      "setup_payloads": [],
+      "trigger_payload": {
+        "endpoint": "POST /authentication/{authentication_id}/eligibility",
+        "body": {
+          "connector": "adyen"
+        }
+      }
+    },
+    {
+      "flow_id": 3,
+      "description": "connector_request + self",
+      "changed_function": "Adyen#ConnectorCommon#get_auth_header",
+      "changed_file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "changed_line": 124,
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/authentication/{merchant_id}/{authentication_id}/redirect",
+          "handler": "authentication_sync_post_update"
+        }
+      ],
+      "prerequisites": [
+        {
+          "kind": "concrete_type",
+          "field": "operation_type",
+          "required_value": "Adyen",
+          "trait": "ConnectorCommon",
+          "trait_args": [],
+          "reason": "path only entered via ConnectorCommon|Adyen||get_auth_header",
+          "confidence": "high"
+        }
+      ],
+      "chain": [
+        {
+          "function": "authentication_sync_post_update",
+          "file": "crates/router/src/routes/authentication.rs",
+          "def_line": 241,
+          "role": "handler",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          },
+          "full_source": "pub async fn authentication_sync_post_update(\n    state: web::Data<app::AppState>,\n"
+        },
+        {
+          "function": "authentication_post_sync_core",
+          "file": "crates/router/src/core/unified_authentication_service.rs",
+          "def_line": 2093,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "ExternalAuthentication#UnifiedAuthenticationService#post_authentication",
+          "file": "crates/router/src/core/unified_authentication_service.rs",
+          "def_line": 530,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "do_auth_connector_call",
+          "file": "crates/router/src/core/unified_authentication_service/utils.rs",
+          "def_line": 45,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "execute_connector_processing_step",
+          "file": "crates/router/src/services/pm_auth.rs",
+          "def_line": 14,
+          "role": "intermediate",
+          "condition": {
+            "type": "match",
+            "text": "connector_request",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "file": "crates/hyperswitch_interfaces/src/connector_integration_interface.rs",
+          "def_line": 919,
+          "role": "intermediate",
+          "condition": {
+            "type": "match",
+            "text": "self",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "Adyen#ConnectorIntegration#build_request",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 509,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "Adyen#ConnectorIntegration#get_headers",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 462,
+          "role": "direct_caller",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          },
+          "full_source": "    fn get_headers(\n        &self,\n"
+        },
+        {
+          "function": "Adyen#ConnectorCommon#get_auth_header",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 124,
+          "role": "target"
+        }
+      ],
+      "connectors": [],
+      "connector_count": 0,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      },
+      "conditions_high": 2,
+      "conditions_missing": 0,
+      "setup_payloads": [],
+      "trigger_payload": {
+        "endpoint": "POST /authentication/{merchant_id}/{authentication_id}/redirect",
+        "body": {
+          "connector": "adyen"
+        }
+      }
+    },
+    {
+      "flow_id": 4,
+      "description": "authentication_connector.is_pre_auth_required_in_post_authn_flow() + connector_request",
+      "changed_function": "Adyen#ConnectorCommon#get_auth_header",
+      "changed_file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "changed_line": 124,
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/authentication/{merchant_id}/{authentication_id}/sync",
+          "handler": "authentication_sync"
+        }
+      ],
+      "prerequisites": [
+        {
+          "kind": "concrete_type",
+          "field": "operation_type",
+          "required_value": "Adyen",
+          "trait": "ConnectorCommon",
+          "trait_args": [],
+          "reason": "path only entered via ConnectorCommon|Adyen||get_auth_header",
+          "confidence": "high"
+        }
+      ],
+      "chain": [
+        {
+          "function": "authentication_sync",
+          "file": "crates/router/src/routes/authentication.rs",
+          "def_line": 198,
+          "role": "handler",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          },
+          "full_source": "pub async fn authentication_sync(\n    state: web::Data<app::AppState>,\n"
+        },
+        {
+          "function": "authentication_sync_core",
+          "file": "crates/router/src/core/unified_authentication_service.rs",
+          "def_line": 1743,
+          "role": "intermediate",
+          "condition": {
+            "type": "if",
+            "text": "authentication_connector.is_pre_auth_required_in_post_authn_flow()",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "do_auth_connector_call",
+          "file": "crates/router/src/core/unified_authentication_service/utils.rs",
+          "def_line": 45,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "execute_connector_processing_step",
+          "file": "crates/router/src/services/pm_auth.rs",
+          "def_line": 14,
+          "role": "intermediate",
+          "condition": {
+            "type": "match",
+            "text": "connector_request",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "file": "crates/hyperswitch_interfaces/src/connector_integration_interface.rs",
+          "def_line": 919,
+          "role": "intermediate",
+          "condition": {
+            "type": "match",
+            "text": "self",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "Adyen#ConnectorIntegration#build_request",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 509,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "Adyen#ConnectorIntegration#get_headers",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 462,
+          "role": "direct_caller",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          },
+          "full_source": "    fn get_headers(\n        &self,\n"
+        },
+        {
+          "function": "Adyen#ConnectorCommon#get_auth_header",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 124,
+          "role": "target"
+        }
+      ],
+      "connectors": [],
+      "connector_count": 0,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      },
+      "conditions_high": 3,
+      "conditions_missing": 0,
+      "setup_payloads": [],
+      "trigger_payload": {
+        "endpoint": "POST /authentication/{merchant_id}/{authentication_id}/sync",
+        "body": {
+          "connector": "adyen"
+        }
+      }
+    },
+    {
+      "flow_id": 5,
+      "description": "connector_request + self",
+      "changed_function": "Adyen#ConnectorCommon#get_auth_header",
+      "changed_file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "changed_line": 124,
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/disputes/evidence",
+          "handler": "submit_dispute_evidence"
+        }
+      ],
+      "prerequisites": [
+        {
+          "kind": "concrete_type",
+          "field": "operation_type",
+          "required_value": "Adyen",
+          "trait": "ConnectorCommon",
+          "trait_args": [],
+          "reason": "path only entered via ConnectorCommon|Adyen||get_auth_header",
+          "confidence": "high"
+        }
+      ],
+      "chain": [
+        {
+          "function": "submit_dispute_evidence",
+          "file": "crates/router/src/routes/disputes.rs",
+          "def_line": 368,
+          "role": "handler",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          },
+          "full_source": "pub async fn submit_dispute_evidence(\n    state: web::Data<AppState>,\n"
+        },
+        {
+          "function": "submit_evidence",
+          "file": "crates/router/src/core/disputes.rs",
+          "def_line": 417,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "execute_connector_processing_step",
+          "file": "crates/router/src/services/pm_auth.rs",
+          "def_line": 14,
+          "role": "intermediate",
+          "condition": {
+            "type": "match",
+            "text": "connector_request",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "file": "crates/hyperswitch_interfaces/src/connector_integration_interface.rs",
+          "def_line": 919,
+          "role": "intermediate",
+          "condition": {
+            "type": "match",
+            "text": "self",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "Adyen#ConnectorIntegration#build_request",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 509,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "Adyen#ConnectorIntegration#get_headers",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 462,
+          "role": "direct_caller",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          },
+          "full_source": "    fn get_headers(\n        &self,\n"
+        },
+        {
+          "function": "Adyen#ConnectorCommon#get_auth_header",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 124,
+          "role": "target"
+        }
+      ],
+      "connectors": [],
+      "connector_count": 0,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      },
+      "conditions_high": 2,
+      "conditions_missing": 0,
+      "setup_payloads": [],
+      "trigger_payload": {
+        "endpoint": "POST /disputes/evidence",
+        "body": {
+          "connector": "adyen"
+        }
+      }
+    },
+    {
+      "flow_id": 6,
+      "description": "connector_data.connector_name.supports_file_storage_module() + connector_request",
+      "changed_function": "Adyen#ConnectorCommon#get_auth_header",
+      "changed_file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "changed_line": 124,
+      "endpoints": [
+        {
+          "method": "PUT",
+          "path": "/disputes/evidence",
+          "handler": "attach_dispute_evidence"
+        }
+      ],
+      "prerequisites": [
+        {
+          "kind": "concrete_type",
+          "field": "operation_type",
+          "required_value": "Adyen",
+          "trait": "ConnectorCommon",
+          "trait_args": [],
+          "reason": "path only entered via ConnectorCommon|Adyen||get_auth_header",
+          "confidence": "high"
+        }
+      ],
+      "chain": [
+        {
+          "function": "attach_dispute_evidence",
+          "file": "crates/router/src/routes/disputes.rs",
+          "def_line": 414,
+          "role": "handler",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          },
+          "full_source": "pub async fn attach_dispute_evidence(\n    state: web::Data<AppState>,\n"
+        },
+        {
+          "function": "attach_evidence",
+          "file": "crates/router/src/core/disputes.rs",
+          "def_line": 580,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "files_create_core",
+          "file": "crates/router/src/core/files.rs",
+          "def_line": 14,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "upload_and_get_provider_provider_file_id_profile_id",
+          "file": "crates/router/src/core/files/helpers.rs",
+          "def_line": 285,
+          "role": "intermediate",
+          "condition": {
+            "type": "if",
+            "text": "connector_data.connector_name.supports_file_storage_module()",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "execute_connector_processing_step",
+          "file": "crates/router/src/services/pm_auth.rs",
+          "def_line": 14,
+          "role": "intermediate",
+          "condition": {
+            "type": "match",
+            "text": "connector_request",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "file": "crates/hyperswitch_interfaces/src/connector_integration_interface.rs",
+          "def_line": 919,
+          "role": "intermediate",
+          "condition": {
+            "type": "match",
+            "text": "self",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "Adyen#ConnectorIntegration#build_request",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 509,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "Adyen#ConnectorIntegration#get_headers",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 462,
+          "role": "direct_caller",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          },
+          "full_source": "    fn get_headers(\n        &self,\n"
+        },
+        {
+          "function": "Adyen#ConnectorCommon#get_auth_header",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 124,
+          "role": "target"
+        }
+      ],
+      "connectors": [],
+      "connector_count": 0,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      },
+      "conditions_high": 3,
+      "conditions_missing": 0,
+      "setup_payloads": [],
+      "trigger_payload": {
+        "endpoint": "PUT /disputes/evidence",
+        "body": {
+          "connector": "adyen"
+        }
+      }
+    },
+    {
+      "flow_id": 7,
+      "description": "connector_request + self",
+      "changed_function": "Adyen#ConnectorCommon#get_auth_header",
+      "changed_file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "changed_line": 124,
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "/disputes/{connector_id}/fetch",
+          "handler": "fetch_disputes"
+        }
+      ],
+      "prerequisites": [
+        {
+          "kind": "concrete_type",
+          "field": "operation_type",
+          "required_value": "Adyen",
+          "trait": "ConnectorCommon",
+          "trait_args": [],
+          "reason": "path only entered via ConnectorCommon|Adyen||get_auth_header",
+          "confidence": "high"
+        }
+      ],
+      "chain": [
+        {
+          "function": "fetch_disputes",
+          "file": "crates/router/src/routes/disputes.rs",
+          "def_line": 71,
+          "role": "handler",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          },
+          "full_source": "pub async fn fetch_disputes(\n    state: web::Data<AppState>,\n"
+        },
+        {
+          "function": "connector_sync_disputes",
+          "file": "crates/router/src/core/disputes.rs",
+          "def_line": 762,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "fetch_disputes_from_connector",
+          "file": "crates/router/src/core/disputes.rs",
+          "def_line": 800,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "execute_connector_processing_step",
+          "file": "crates/router/src/services/pm_auth.rs",
+          "def_line": 14,
+          "role": "intermediate",
+          "condition": {
+            "type": "match",
+            "text": "connector_request",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "file": "crates/hyperswitch_interfaces/src/connector_integration_interface.rs",
+          "def_line": 919,
+          "role": "intermediate",
+          "condition": {
+            "type": "match",
+            "text": "self",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "Adyen#ConnectorIntegration#build_request",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 509,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "Adyen#ConnectorIntegration#get_headers",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 462,
+          "role": "direct_caller",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          },
+          "full_source": "    fn get_headers(\n        &self,\n"
+        },
+        {
+          "function": "Adyen#ConnectorCommon#get_auth_header",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 124,
+          "role": "target"
+        }
+      ],
+      "connectors": [],
+      "connector_count": 0,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      },
+      "conditions_high": 2,
+      "conditions_missing": 0,
+      "setup_payloads": [],
+      "trigger_payload": {
+        "endpoint": "GET /disputes/{connector_id}/fetch",
+        "body": {
+          "connector": "adyen"
+        }
+      }
+    },
+    {
+      "flow_id": 8,
+      "description": "connector_data.connector_name.supports_file_storage_module() + connector_request",
+      "changed_function": "Adyen#ConnectorCommon#get_auth_header",
+      "changed_file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "changed_line": 124,
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/files",
+          "handler": "files_create"
+        }
+      ],
+      "prerequisites": [
+        {
+          "kind": "concrete_type",
+          "field": "operation_type",
+          "required_value": "Adyen",
+          "trait": "ConnectorCommon",
+          "trait_args": [],
+          "reason": "path only entered via ConnectorCommon|Adyen||get_auth_header",
+          "confidence": "high"
+        }
+      ],
+      "chain": [
+        {
+          "function": "files_create",
+          "file": "crates/router/src/routes/files.rs",
+          "def_line": 33,
+          "role": "handler",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          },
+          "full_source": "pub async fn files_create(\n    state: web::Data<AppState>,\n"
+        },
+        {
+          "function": "files_create_core",
+          "file": "crates/router/src/core/files.rs",
+          "def_line": 14,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "upload_and_get_provider_provider_file_id_profile_id",
+          "file": "crates/router/src/core/files/helpers.rs",
+          "def_line": 285,
+          "role": "intermediate",
+          "condition": {
+            "type": "if",
+            "text": "connector_data.connector_name.supports_file_storage_module()",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "execute_connector_processing_step",
+          "file": "crates/router/src/services/pm_auth.rs",
+          "def_line": 14,
+          "role": "intermediate",
+          "condition": {
+            "type": "match",
+            "text": "connector_request",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "file": "crates/hyperswitch_interfaces/src/connector_integration_interface.rs",
+          "def_line": 919,
+          "role": "intermediate",
+          "condition": {
+            "type": "match",
+            "text": "self",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "Adyen#ConnectorIntegration#build_request",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 509,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "Adyen#ConnectorIntegration#get_headers",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 462,
+          "role": "direct_caller",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          },
+          "full_source": "    fn get_headers(\n        &self,\n"
+        },
+        {
+          "function": "Adyen#ConnectorCommon#get_auth_header",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 124,
+          "role": "target"
+        }
+      ],
+      "connectors": [],
+      "connector_count": 0,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      },
+      "conditions_high": 3,
+      "conditions_missing": 0,
+      "setup_payloads": [],
+      "trigger_payload": {
+        "endpoint": "POST /files",
+        "body": {
+          "connector": "adyen"
+        }
+      }
+    },
+    {
+      "flow_id": 9,
+      "description": "is_connector_file_data_required + connector_request",
+      "changed_function": "Adyen#ConnectorCommon#get_auth_header",
+      "changed_file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "changed_line": 124,
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "/files/{file_id}",
+          "handler": "files_retrieve"
+        }
+      ],
+      "prerequisites": [
+        {
+          "kind": "concrete_type",
+          "field": "operation_type",
+          "required_value": "Adyen",
+          "trait": "ConnectorCommon",
+          "trait_args": [],
+          "reason": "path only entered via ConnectorCommon|Adyen||get_auth_header",
+          "confidence": "high"
+        }
+      ],
+      "chain": [
+        {
+          "function": "files_retrieve",
+          "file": "crates/router/src/routes/files.rs",
+          "def_line": 133,
+          "role": "handler",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          },
+          "full_source": "pub async fn files_retrieve(\n    state: web::Data<AppState>,\n"
+        },
+        {
+          "function": "files_retrieve_core",
+          "file": "crates/router/src/core/files.rs",
+          "def_line": 101,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "retrieve_file_and_provider_file_id_from_file_id",
+          "file": "crates/router/src/core/files/helpers.rs",
+          "def_line": 197,
+          "role": "intermediate",
+          "condition": {
+            "type": "match",
+            "text": "is_connector_file_data_required",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "retrieve_file_from_connector",
+          "file": "crates/router/src/core/files/helpers.rs",
+          "def_line": 122,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "execute_connector_processing_step",
+          "file": "crates/router/src/services/pm_auth.rs",
+          "def_line": 14,
+          "role": "intermediate",
+          "condition": {
+            "type": "match",
+            "text": "connector_request",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "file": "crates/hyperswitch_interfaces/src/connector_integration_interface.rs",
+          "def_line": 919,
+          "role": "intermediate",
+          "condition": {
+            "type": "match",
+            "text": "self",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "Adyen#ConnectorIntegration#build_request",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 509,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "Adyen#ConnectorIntegration#get_headers",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 462,
+          "role": "direct_caller",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          },
+          "full_source": "    fn get_headers(\n        &self,\n"
+        },
+        {
+          "function": "Adyen#ConnectorCommon#get_auth_header",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 124,
+          "role": "target"
+        }
+      ],
+      "connectors": [],
+      "connector_count": 0,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      },
+      "conditions_high": 3,
+      "conditions_missing": 0,
+      "setup_payloads": [],
+      "trigger_payload": {
+        "endpoint": "GET /files/{file_id}",
+        "body": {
+          "connector": "adyen"
+        }
+      }
+    },
+    {
+      "flow_id": 10,
+      "description": "let Some(connector_details) = connector + is_tax_connector_enabled && !skip_external_tax_calculation",
+      "changed_function": "Adyen#ConnectorCommon#get_auth_header",
+      "changed_file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "changed_line": 124,
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "/payments/redirect/{payment_id}/{merchant_id}/{attempt_id}",
+          "handler": "payments_start"
+        },
+        {
+          "method": "POST",
+          "path": "/payments/session_tokens",
+          "handler": "payments_connector_session"
+        },
+        {
+          "method": "POST",
+          "path": "/payments/sync",
+          "handler": "payments_retrieve_with_gateway_creds"
+        },
+        {
+          "method": "GET",
+          "path": "/payments/{payment_id}",
+          "handler": "payments_retrieve"
+        },
+        {
+          "method": "POST",
+          "path": "/payments/{payment_id}/approve",
+          "handler": "payments_approve"
+        },
+        {
+          "method": "POST",
+          "path": "/payments/{payment_id}/calculate_tax",
+          "handler": "payments_dynamic_tax_calculation"
+        },
+        {
+          "method": "POST",
+          "path": "/payments/{payment_id}/cancel",
+          "handler": "payments_cancel"
+        },
+        {
+          "method": "POST",
+          "path": "/payments/{payment_id}/cancel_post_capture",
+          "handler": "payments_cancel_post_capture"
+        },
+        {
+          "method": "POST",
+          "path": "/payments/{payment_id}/capture",
+          "handler": "payments_capture"
+        },
+        {
+          "method": "POST",
+          "path": "/payments/{payment_id}/complete_authorize",
+          "handler": "payments_complete_authorize"
+        },
+        {
+          "method": "POST",
+          "path": "/payments/{payment_id}/extend_authorization",
+          "handler": "payments_extend_authorization"
+        },
+        {
+          "method": "POST",
+          "path": "/payments/{payment_id}/incremental_authorization",
+          "handler": "payments_incremental_authorization"
+        },
+        {
+          "method": "POST",
+          "path": "/payments/{payment_id}/post_session_tokens",
+          "handler": "payments_post_session_tokens"
+        },
+        {
+          "method": "POST",
+          "path": "/payments/{payment_id}/reject",
+          "handler": "payments_reject"
+        },
+        {
+          "method": "POST",
+          "path": "/payments/{payment_id}/update_metadata",
+          "handler": "payments_update_metadata"
+        }
+      ],
+      "prerequisites": [
+        {
+          "kind": "concrete_type",
+          "field": "operation_type",
+          "required_value": "Adyen",
+          "trait": "ConnectorCommon",
+          "trait_args": [],
+          "reason": "path only entered via ConnectorCommon|Adyen||get_auth_header",
+          "confidence": "high"
+        }
+      ],
+      "chain": [
+        {
+          "function": "payments_start",
+          "file": "crates/router/src/routes/payments.rs",
+          "def_line": 530,
+          "role": "handler",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          },
+          "full_source": "pub async fn payments_start(\n    state: web::Data<app::AppState>,\n"
+        },
+        {
+          "function": "payments_core",
+          "file": "crates/router/src/core/payments.rs",
+          "def_line": 2246,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "payments_operation_core",
+          "file": "crates/router/src/core/payments.rs",
+          "def_line": 598,
+          "role": "intermediate",
+          "condition": {
+            "type": "if_let",
+            "text": "let Some(connector_details) = connector",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+          "file": "crates/router/src/core/payments/operations/tax_calculation.rs",
+          "def_line": 228,
+          "role": "intermediate",
+          "condition": {
+            "type": "if",
+            "text": "is_tax_connector_enabled && !skip_external_tax_calculation",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "execute_connector_processing_step",
+          "file": "crates/router/src/services/pm_auth.rs",
+          "def_line": 14,
+          "role": "intermediate",
+          "condition": {
+            "type": "match",
+            "text": "connector_request",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "file": "crates/hyperswitch_interfaces/src/connector_integration_interface.rs",
+          "def_line": 919,
+          "role": "intermediate",
+          "condition": {
+            "type": "match",
+            "text": "self",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "Adyen#ConnectorIntegration#build_request",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 509,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "Adyen#ConnectorIntegration#get_headers",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 462,
+          "role": "direct_caller",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          },
+          "full_source": "    fn get_headers(\n        &self,\n"
+        },
+        {
+          "function": "Adyen#ConnectorCommon#get_auth_header",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 124,
+          "role": "target"
+        }
+      ],
+      "connectors": [
+        "aci",
+        "adyen",
+        "adyenplatform",
+        "affirm",
+        "airwallex",
+        "amazonpay",
+        "archipel",
+        "authipay",
+        "authorizedotnet",
+        "bambora",
+        "bamboraapac",
+        "bankofamerica",
+        "barclaycard",
+        "billwerk",
+        "bitpay",
+        "blackhawknetwork",
+        "bluesnap",
+        "boku",
+        "braintree",
+        "breadpay",
+        "calida",
+        "cashtocode",
+        "celero",
+        "chargebee",
+        "checkbook",
+        "checkout",
+        "coinbase",
+        "coingate",
+        "cryptopay",
+        "custombilling",
+        "cybersource",
+        "datatrans",
+        "deutschebank",
+        "digitalvirgo",
+        "dlocal",
+        "dwolla",
+        "ebanx",
+        "elavon",
+        "envoy",
+        "facilitapay",
+        "finix",
+        "fiserv",
+        "fiservemea",
+        "fiuu",
+        "flexiti",
+        "forte",
+        "getnet",
+        "gigadat",
+        "globalpay",
+        "globepay",
+        "gocardless",
+        "gpayments",
+        "helcim",
+        "hipay",
+        "hyperswitch_vault",
+        "hyperwallet",
+        "iatapay",
+        "inespay",
+        "itaubank",
+        "jpmorgan",
+        "juspaythreedsserver",
+        "katapult",
+        "klarna",
+        "loonio",
+        "mifinity",
+        "mollie",
+        "moneris",
+        "mpgs",
+        "multisafepay",
+        "nexinets",
+        "nexixpay",
+        "nmi",
+        "nomupay",
+        "noon",
+        "nordea",
+        "novalnet",
+        "nuvei",
+        "opayo",
+        "opennode",
+        "paybox",
+        "payeezy",
+        "payjustnow",
+        "payjustnowinstore",
+        "payload",
+        "payme",
+        "paypal",
+        "paysafe",
+        "paystack",
+        "paytm",
+        "payu",
+        "peachpayments",
+        "phonepe",
+        "placetopay",
+        "powertranz",
+        "prophetpay",
+        "rapyd",
+        "razorpay",
+        "redsys",
+        "santander",
+        "shift4",
+        "sift",
+        "silverflow",
+        "square",
+        "stax",
+        "stripe",
+        "stripebilling",
+        "taxjar",
+        "tesouro",
+        "thunes",
+        "tokenex",
+        "tokenio",
+        "trustpay",
+        "trustpayments",
+        "tsys",
+        "unified_authentication_service",
+        "vgs",
+        "volt",
+        "wellsfargo",
+        "wellsfargopayout",
+        "wise",
+        "worldline",
+        "worldpay",
+        "worldpayvantiv",
+        "worldpayxml",
+        "xendit",
+        "zen",
+        "zift",
+        "zsl"
+      ],
+      "connector_count": 128,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      },
+      "conditions_high": 4,
+      "conditions_missing": 0,
+      "setup_payloads": [],
+      "trigger_payload": {
+        "endpoint": "GET /payments/redirect/{payment_id}/{merchant_id}/{attempt_id}",
+        "body": {
+          "amount": 1000,
+          "currency": "USD",
+          "payment_method": "card",
+          "payment_method_data": {
+            "card": {
+              "number": "4111111111111111",
+              "exp_month": "12",
+              "exp_year": "2030",
+              "cvc": "123"
+            }
+          },
+          "connector": "adyen"
+        }
+      }
+    },
+    {
+      "flow_id": 11,
+      "description": "helpers::is_merchant_eligible_authentication_service(\n        platform.get_proce + connector_request",
+      "changed_function": "Adyen#ConnectorCommon#get_auth_header",
+      "changed_file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "changed_line": 124,
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/payments/{payment_id}/3ds/authentication",
+          "handler": "payments_external_authentication"
+        }
+      ],
+      "prerequisites": [
+        {
+          "kind": "concrete_type",
+          "field": "operation_type",
+          "required_value": "Adyen",
+          "trait": "ConnectorCommon",
+          "trait_args": [],
+          "reason": "path only entered via ConnectorCommon|Adyen||get_auth_header",
+          "confidence": "high"
+        }
+      ],
+      "chain": [
+        {
+          "function": "payments_external_authentication",
+          "file": "crates/router/src/routes/payments.rs",
+          "def_line": 2362,
+          "role": "handler",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          },
+          "full_source": "pub async fn payments_external_authentication(\n    state: web::Data<app::AppState>,\n"
+        },
+        {
+          "function": "payment_external_authentication",
+          "file": "crates/router/src/core/payments.rs",
+          "def_line": 10647,
+          "role": "intermediate",
+          "condition": {
+            "type": "if",
+            "text": "helpers::is_merchant_eligible_authentication_service(\n        platform.get_processor().get_account().get_id(),\n        &state,\n    )\n    .await?",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "ExternalAuthentication#UnifiedAuthenticationService#authentication",
+          "file": "crates/router/src/core/unified_authentication_service.rs",
+          "def_line": 454,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "do_auth_connector_call",
+          "file": "crates/router/src/core/unified_authentication_service/utils.rs",
+          "def_line": 45,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "execute_connector_processing_step",
+          "file": "crates/router/src/services/pm_auth.rs",
+          "def_line": 14,
+          "role": "intermediate",
+          "condition": {
+            "type": "match",
+            "text": "connector_request",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "file": "crates/hyperswitch_interfaces/src/connector_integration_interface.rs",
+          "def_line": 919,
+          "role": "intermediate",
+          "condition": {
+            "type": "match",
+            "text": "self",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "Adyen#ConnectorIntegration#build_request",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 509,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "Adyen#ConnectorIntegration#get_headers",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 462,
+          "role": "direct_caller",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          },
+          "full_source": "    fn get_headers(\n        &self,\n"
+        },
+        {
+          "function": "Adyen#ConnectorCommon#get_auth_header",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 124,
+          "role": "target"
+        }
+      ],
+      "connectors": [
+        "aci",
+        "adyen",
+        "adyenplatform",
+        "affirm",
+        "airwallex",
+        "amazonpay",
+        "archipel",
+        "authipay",
+        "authorizedotnet",
+        "bambora",
+        "bamboraapac",
+        "bankofamerica",
+        "barclaycard",
+        "billwerk",
+        "bitpay",
+        "blackhawknetwork",
+        "bluesnap",
+        "boku",
+        "braintree",
+        "breadpay",
+        "calida",
+        "cashtocode",
+        "celero",
+        "chargebee",
+        "checkbook",
+        "checkout",
+        "coinbase",
+        "coingate",
+        "cryptopay",
+        "custombilling",
+        "cybersource",
+        "datatrans",
+        "deutschebank",
+        "digitalvirgo",
+        "dlocal",
+        "dwolla",
+        "ebanx",
+        "elavon",
+        "envoy",
+        "facilitapay",
+        "finix",
+        "fiserv",
+        "fiservemea",
+        "fiuu",
+        "flexiti",
+        "forte",
+        "getnet",
+        "gigadat",
+        "globalpay",
+        "globepay",
+        "gocardless",
+        "gpayments",
+        "helcim",
+        "hipay",
+        "hyperswitch_vault",
+        "hyperwallet",
+        "iatapay",
+        "inespay",
+        "itaubank",
+        "jpmorgan",
+        "juspaythreedsserver",
+        "katapult",
+        "klarna",
+        "loonio",
+        "mifinity",
+        "mollie",
+        "moneris",
+        "mpgs",
+        "multisafepay",
+        "nexinets",
+        "nexixpay",
+        "nmi",
+        "nomupay",
+        "noon",
+        "nordea",
+        "novalnet",
+        "nuvei",
+        "opayo",
+        "opennode",
+        "paybox",
+        "payeezy",
+        "payjustnow",
+        "payjustnowinstore",
+        "payload",
+        "payme",
+        "paypal",
+        "paysafe",
+        "paystack",
+        "paytm",
+        "payu",
+        "peachpayments",
+        "phonepe",
+        "placetopay",
+        "powertranz",
+        "prophetpay",
+        "rapyd",
+        "razorpay",
+        "redsys",
+        "santander",
+        "shift4",
+        "sift",
+        "silverflow",
+        "square",
+        "stax",
+        "stripe",
+        "stripebilling",
+        "taxjar",
+        "tesouro",
+        "thunes",
+        "tokenex",
+        "tokenio",
+        "trustpay",
+        "trustpayments",
+        "tsys",
+        "unified_authentication_service",
+        "vgs",
+        "volt",
+        "wellsfargo",
+        "wellsfargopayout",
+        "wise",
+        "worldline",
+        "worldpay",
+        "worldpayvantiv",
+        "worldpayxml",
+        "xendit",
+        "zen",
+        "zift",
+        "zsl"
+      ],
+      "connector_count": 128,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      },
+      "conditions_high": 3,
+      "conditions_missing": 0,
+      "setup_payloads": [],
+      "trigger_payload": {
+        "endpoint": "POST /payments/{payment_id}/3ds/authentication",
+        "body": {
+          "amount": 1000,
+          "currency": "USD",
+          "payment_method": "card",
+          "payment_method_data": {
+            "card": {
+              "number": "4111111111111111",
+              "exp_month": "12",
+              "exp_year": "2030",
+              "cvc": "123"
+            }
+          },
+          "connector": "adyen"
+        }
+      }
+    },
+    {
+      "flow_id": 12,
+      "description": "connector_request + self",
+      "changed_function": "Adyen#ConnectorCommon#get_auth_header",
+      "changed_file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "changed_line": 124,
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "/subscriptions/items",
+          "handler": "get_subscription_items"
+        }
+      ],
+      "prerequisites": [
+        {
+          "kind": "concrete_type",
+          "field": "operation_type",
+          "required_value": "Adyen",
+          "trait": "ConnectorCommon",
+          "trait_args": [],
+          "reason": "path only entered via ConnectorCommon|Adyen||get_auth_header",
+          "confidence": "high"
+        }
+      ],
+      "chain": [
+        {
+          "function": "get_subscription_items",
+          "file": "crates/subscriptions/src/core.rs",
+          "def_line": 124,
+          "role": "handler",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          },
+          "full_source": "pub async fn get_subscription_items(\n    state: SessionState,\n"
+        },
+        {
+          "function": "BillingHandler#get_subscription_items",
+          "file": "crates/subscriptions/src/core/billing_processor_handler.rs",
+          "def_line": 294,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "BillingHandler#call_connector",
+          "file": "crates/subscriptions/src/core/billing_processor_handler.rs",
+          "def_line": 456,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "execute_connector_processing_step",
+          "file": "crates/router/src/services/pm_auth.rs",
+          "def_line": 14,
+          "role": "intermediate",
+          "condition": {
+            "type": "match",
+            "text": "connector_request",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "file": "crates/hyperswitch_interfaces/src/connector_integration_interface.rs",
+          "def_line": 919,
+          "role": "intermediate",
+          "condition": {
+            "type": "match",
+            "text": "self",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "Adyen#ConnectorIntegration#build_request",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 509,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "Adyen#ConnectorIntegration#get_headers",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 462,
+          "role": "direct_caller",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          },
+          "full_source": "    fn get_headers(\n        &self,\n"
+        },
+        {
+          "function": "Adyen#ConnectorCommon#get_auth_header",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 124,
+          "role": "target"
+        }
+      ],
+      "connectors": [],
+      "connector_count": 0,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      },
+      "conditions_high": 2,
+      "conditions_missing": 0,
+      "setup_payloads": [],
+      "trigger_payload": {
+        "endpoint": "GET /subscriptions/items",
+        "body": {
+          "connector": "adyen"
+        }
+      }
+    },
+    {
+      "flow_id": 13,
+      "description": "connector_request + self",
+      "changed_function": "Adyen#ConnectorCommon#get_auth_header",
+      "changed_file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "changed_line": 124,
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "/subscriptions/list_with_count",
+          "handler": "customers_list_with_count"
+        }
+      ],
+      "prerequisites": [
+        {
+          "kind": "concrete_type",
+          "field": "operation_type",
+          "required_value": "Adyen",
+          "trait": "ConnectorCommon",
+          "trait_args": [],
+          "reason": "path only entered via ConnectorCommon|Adyen||get_auth_header",
+          "confidence": "high"
+        }
+      ],
+      "chain": [
+        {
+          "function": "customers_list_with_count",
+          "file": "crates/router/src/routes/customers.rs",
+          "def_line": 262,
+          "role": "handler",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          },
+          "full_source": "pub async fn customers_list_with_count(\n    state: web::Data<AppState>,\n"
+        },
+        {
+          "function": "list_customers_with_count",
+          "file": "crates/router/src/core/customers.rs",
+          "def_line": 587,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "MockDb#CustomerInterface#list_customers_by_merchant_id_with_count",
+          "file": "crates/storage_impl/src/customers.rs",
+          "def_line": 833,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "create_recipient_disburse_account",
+          "file": "crates/router/src/core/payouts.rs",
+          "def_line": 2117,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "execute_connector_processing_step",
+          "file": "crates/router/src/services/pm_auth.rs",
+          "def_line": 14,
+          "role": "intermediate",
+          "condition": {
+            "type": "match",
+            "text": "connector_request",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "file": "crates/hyperswitch_interfaces/src/connector_integration_interface.rs",
+          "def_line": 919,
+          "role": "intermediate",
+          "condition": {
+            "type": "match",
+            "text": "self",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "Adyen#ConnectorIntegration#build_request",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 509,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "Adyen#ConnectorIntegration#get_headers",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 462,
+          "role": "direct_caller",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          },
+          "full_source": "    fn get_headers(\n        &self,\n"
+        },
+        {
+          "function": "Adyen#ConnectorCommon#get_auth_header",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 124,
+          "role": "target"
+        }
+      ],
+      "connectors": [],
+      "connector_count": 0,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      },
+      "conditions_high": 2,
+      "conditions_missing": 0,
+      "setup_payloads": [],
+      "trigger_payload": {
+        "endpoint": "GET /subscriptions/list_with_count",
+        "body": {
+          "connector": "adyen"
+        }
+      }
+    },
+    {
+      "flow_id": 14,
+      "description": "(matches!(fraud_check.frm_transaction_type, FraudCheckType::PreFrm)\n             + connector_request",
+      "changed_function": "Adyen#ConnectorCommon#get_auth_header",
+      "changed_file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "changed_line": 124,
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/webhooks/frm_fulfillment",
+          "handler": "frm_fulfillment"
+        }
+      ],
+      "prerequisites": [
+        {
+          "kind": "concrete_type",
+          "field": "operation_type",
+          "required_value": "Adyen",
+          "trait": "ConnectorCommon",
+          "trait_args": [],
+          "reason": "path only entered via ConnectorCommon|Adyen||get_auth_header",
+          "confidence": "high"
+        }
+      ],
+      "chain": [
+        {
+          "function": "frm_fulfillment",
+          "file": "crates/router/src/routes/fraud_check.rs",
+          "def_line": 11,
+          "role": "handler",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          },
+          "full_source": "pub async fn frm_fulfillment(\n    state: web::Data<AppState>,\n"
+        },
+        {
+          "function": "frm_fulfillment_core",
+          "file": "crates/router/src/core/fraud_check.rs",
+          "def_line": 753,
+          "role": "intermediate",
+          "condition": {
+            "type": "if",
+            "text": "(matches!(fraud_check.frm_transaction_type, FraudCheckType::PreFrm)\n                        && fraud_check.last_step == FraudCheckLastStep::TransactionOrRecordRefund)\n                        || (matches!(fraud_check.frm_transaction_type, FraudCheckType::PostFrm)\n                            && fraud_",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "make_fulfillment_api_call",
+          "file": "crates/router/src/core/fraud_check.rs",
+          "def_line": 812,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "execute_connector_processing_step",
+          "file": "crates/router/src/services/pm_auth.rs",
+          "def_line": 14,
+          "role": "intermediate",
+          "condition": {
+            "type": "match",
+            "text": "connector_request",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "file": "crates/hyperswitch_interfaces/src/connector_integration_interface.rs",
+          "def_line": 919,
+          "role": "intermediate",
+          "condition": {
+            "type": "match",
+            "text": "self",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "Adyen#ConnectorIntegration#build_request",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 509,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "Adyen#ConnectorIntegration#get_headers",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 462,
+          "role": "direct_caller",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          },
+          "full_source": "    fn get_headers(\n        &self,\n"
+        },
+        {
+          "function": "Adyen#ConnectorCommon#get_auth_header",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 124,
+          "role": "target"
+        }
+      ],
+      "connectors": [],
+      "connector_count": 0,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      },
+      "conditions_high": 3,
+      "conditions_missing": 0,
+      "setup_payloads": [],
+      "trigger_payload": {
+        "endpoint": "POST /webhooks/frm_fulfillment",
+        "body": {
+          "connector": "adyen"
+        }
+      }
+    },
+    {
+      "flow_id": 15,
+      "description": "matches!(req.force_sync, Some(true)) && helpers::should_call_retrieve(status) + connector_call_type",
+      "changed_function": "Adyen#ConnectorCommon#get_auth_header",
+      "changed_file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "changed_line": 124,
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "/{payout_id}",
+          "handler": "payouts_retrieve"
+        }
+      ],
+      "prerequisites": [
+        {
+          "kind": "concrete_type",
+          "field": "operation_type",
+          "required_value": "Adyen",
+          "trait": "ConnectorCommon",
+          "trait_args": [],
+          "reason": "path only entered via ConnectorCommon|Adyen||get_auth_header",
+          "confidence": "high"
+        },
+        {
+          "kind": "request_field",
+          "field": "force_sync",
+          "required": false,
+          "reason": "matches!(req.force_sync, Some(true)) && helpers::should_call_retrieve(status)",
+          "confidence": "low"
+        }
+      ],
+      "chain": [
+        {
+          "function": "payouts_retrieve",
+          "file": "crates/router/src/routes/payouts.rs",
+          "def_line": 70,
+          "role": "handler",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          },
+          "full_source": "pub async fn payouts_retrieve(\n    state: web::Data<AppState>,\n"
+        },
+        {
+          "function": "payouts_retrieve_core",
+          "file": "crates/router/src/core/payouts.rs",
+          "def_line": 509,
+          "role": "intermediate",
+          "condition": {
+            "type": "if",
+            "text": "matches!(req.force_sync, Some(true)) && helpers::should_call_retrieve(status)",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "complete_payout_retrieve",
+          "file": "crates/router/src/core/payouts.rs",
+          "def_line": 1898,
+          "role": "intermediate",
+          "condition": {
+            "type": "match",
+            "text": "connector_call_type",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "create_payout_retrieve",
+          "file": "crates/router/src/core/payouts.rs",
+          "def_line": 1934,
+          "role": "intermediate",
+          "condition": {
+            "type": "match",
+            "text": "helpers::should_continue_payout(&router_data)",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "execute_connector_processing_step",
+          "file": "crates/router/src/services/pm_auth.rs",
+          "def_line": 14,
+          "role": "intermediate",
+          "condition": {
+            "type": "match",
+            "text": "connector_request",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "file": "crates/hyperswitch_interfaces/src/connector_integration_interface.rs",
+          "def_line": 919,
+          "role": "intermediate",
+          "condition": {
+            "type": "match",
+            "text": "self",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "Adyen#ConnectorIntegration#build_request",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 509,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "Adyen#ConnectorIntegration#get_headers",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 462,
+          "role": "direct_caller",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          },
+          "full_source": "    fn get_headers(\n        &self,\n"
+        },
+        {
+          "function": "Adyen#ConnectorCommon#get_auth_header",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 124,
+          "role": "target"
+        }
+      ],
+      "connectors": [],
+      "connector_count": 0,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      },
+      "conditions_high": 5,
+      "conditions_missing": 0,
+      "setup_payloads": [],
+      "trigger_payload": {
+        "endpoint": "GET /{payout_id}",
+        "body": {
+          "connector": "adyen"
+        }
+      }
+    },
+    {
+      "flow_id": 16,
+      "description": "helpers::is_eligible_for_local_payout_cancellation(status) + connector_request",
+      "changed_function": "Adyen#ConnectorCommon#get_auth_header",
+      "changed_file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "changed_line": 124,
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/{payout_id}/cancel",
+          "handler": "payouts_cancel"
+        }
+      ],
+      "prerequisites": [
+        {
+          "kind": "concrete_type",
+          "field": "operation_type",
+          "required_value": "Adyen",
+          "trait": "ConnectorCommon",
+          "trait_args": [],
+          "reason": "path only entered via ConnectorCommon|Adyen||get_auth_header",
+          "confidence": "high"
+        }
+      ],
+      "chain": [
+        {
+          "function": "payouts_cancel",
+          "file": "crates/router/src/routes/payouts.rs",
+          "def_line": 189,
+          "role": "handler",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          },
+          "full_source": "pub async fn payouts_cancel(\n    state: web::Data<AppState>,\n"
+        },
+        {
+          "function": "payouts_cancel_core",
+          "file": "crates/router/src/core/payouts.rs",
+          "def_line": 553,
+          "role": "intermediate",
+          "condition": {
+            "type": "if",
+            "text": "helpers::is_eligible_for_local_payout_cancellation(status)",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "cancel_payout",
+          "file": "crates/router/src/core/payouts.rs",
+          "def_line": 2313,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "execute_connector_processing_step",
+          "file": "crates/router/src/services/pm_auth.rs",
+          "def_line": 14,
+          "role": "intermediate",
+          "condition": {
+            "type": "match",
+            "text": "connector_request",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "file": "crates/hyperswitch_interfaces/src/connector_integration_interface.rs",
+          "def_line": 919,
+          "role": "intermediate",
+          "condition": {
+            "type": "match",
+            "text": "self",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "Adyen#ConnectorIntegration#build_request",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 509,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "Adyen#ConnectorIntegration#get_headers",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 462,
+          "role": "direct_caller",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          },
+          "full_source": "    fn get_headers(\n        &self,\n"
+        },
+        {
+          "function": "Adyen#ConnectorCommon#get_auth_header",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 124,
+          "role": "target"
+        }
+      ],
+      "connectors": [],
+      "connector_count": 0,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      },
+      "conditions_high": 3,
+      "conditions_missing": 0,
+      "setup_payloads": [],
+      "trigger_payload": {
+        "endpoint": "POST /{payout_id}/cancel",
+        "body": {
+          "connector": "adyen"
+        }
+      }
+    },
+    {
+      "flow_id": 17,
+      "description": "helpers::should_continue_payout(&router_data) + connector_request",
+      "changed_function": "Adyen#ConnectorCommon#get_auth_header",
+      "changed_file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "changed_line": 124,
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/{payout_id}/fulfill",
+          "handler": "payouts_fulfill"
+        }
+      ],
+      "prerequisites": [
+        {
+          "kind": "concrete_type",
+          "field": "operation_type",
+          "required_value": "Adyen",
+          "trait": "ConnectorCommon",
+          "trait_args": [],
+          "reason": "path only entered via ConnectorCommon|Adyen||get_auth_header",
+          "confidence": "high"
+        }
+      ],
+      "chain": [
+        {
+          "function": "payouts_fulfill",
+          "file": "crates/router/src/routes/payouts.rs",
+          "def_line": 217,
+          "role": "handler",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          },
+          "full_source": "pub async fn payouts_fulfill(\n    state: web::Data<AppState>,\n"
+        },
+        {
+          "function": "payouts_fulfill_core",
+          "file": "crates/router/src/core/payouts.rs",
+          "def_line": 652,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "fulfill_payout",
+          "file": "crates/router/src/core/payouts.rs",
+          "def_line": 2449,
+          "role": "intermediate",
+          "condition": {
+            "type": "match",
+            "text": "helpers::should_continue_payout(&router_data)",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "execute_connector_processing_step",
+          "file": "crates/router/src/services/pm_auth.rs",
+          "def_line": 14,
+          "role": "intermediate",
+          "condition": {
+            "type": "match",
+            "text": "connector_request",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "file": "crates/hyperswitch_interfaces/src/connector_integration_interface.rs",
+          "def_line": 919,
+          "role": "intermediate",
+          "condition": {
+            "type": "match",
+            "text": "self",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "Adyen#ConnectorIntegration#build_request",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 509,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "Adyen#ConnectorIntegration#get_headers",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 462,
+          "role": "direct_caller",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          },
+          "full_source": "    fn get_headers(\n        &self,\n"
+        },
+        {
+          "function": "Adyen#ConnectorCommon#get_auth_header",
+          "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+          "def_line": 124,
+          "role": "target"
+        }
+      ],
+      "connectors": [],
+      "connector_count": 0,
+      "specialization": {
+        "connector": "Adyen",
+        "trait": "ConnectorCommon",
+        "trait_args": [],
+        "method": "get_auth_header",
+        "specialization_key": "ConnectorCommon|Adyen||get_auth_header"
+      },
+      "conditions_high": 3,
+      "conditions_missing": 0,
+      "setup_payloads": [],
+      "trigger_payload": {
+        "endpoint": "POST /{payout_id}/fulfill",
+        "body": {
+          "connector": "adyen"
+        }
+      }
+    }
+  ],
+  "reachability_matrix": [
+    {
+      "modified_function": "Adyen#ConnectorCommon#get_auth_header",
+      "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "line": 124,
+      "endpoint": "POST /authentication/{authentication_id}/authenticate",
+      "handler": "authentication_authenticate",
+      "call_chain": [
+        "authentication_authenticate",
+        "authentication_authenticate_core",
+        "ExternalAuthentication#UnifiedAuthenticationService#authentication",
+        "do_auth_connector_call",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guard_conditions": [
+        {
+          "function": "execute_connector_processing_step",
+          "type": "match",
+          "condition": "connector_request",
+          "confidence": "high"
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "type": "match",
+          "condition": "self",
+          "confidence": "high"
+        }
+      ],
+      "impact_status": "Conditionally Impacted (via Adyen)",
+      "specialization_key": "ConnectorCommon|Adyen||get_auth_header",
+      "likely_infeasible": false
+    },
+    {
+      "modified_function": "Adyen#ConnectorCommon#get_auth_header",
+      "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "line": 124,
+      "endpoint": "POST /authentication/{authentication_id}/eligibility",
+      "handler": "authentication_eligibility",
+      "call_chain": [
+        "authentication_eligibility",
+        "authentication_eligibility_core",
+        "ExternalAuthentication#UnifiedAuthenticationService#pre_authentication",
+        "do_auth_connector_call",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guard_conditions": [
+        {
+          "function": "execute_connector_processing_step",
+          "type": "match",
+          "condition": "connector_request",
+          "confidence": "high"
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "type": "match",
+          "condition": "self",
+          "confidence": "high"
+        }
+      ],
+      "impact_status": "Conditionally Impacted (via Adyen)",
+      "specialization_key": "ConnectorCommon|Adyen||get_auth_header",
+      "likely_infeasible": false
+    },
+    {
+      "modified_function": "Adyen#ConnectorCommon#get_auth_header",
+      "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "line": 124,
+      "endpoint": "POST /authentication/{merchant_id}/{authentication_id}/redirect",
+      "handler": "authentication_sync_post_update",
+      "call_chain": [
+        "authentication_sync_post_update",
+        "authentication_post_sync_core",
+        "ExternalAuthentication#UnifiedAuthenticationService#post_authentication",
+        "do_auth_connector_call",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guard_conditions": [
+        {
+          "function": "execute_connector_processing_step",
+          "type": "match",
+          "condition": "connector_request",
+          "confidence": "high"
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "type": "match",
+          "condition": "self",
+          "confidence": "high"
+        }
+      ],
+      "impact_status": "Conditionally Impacted (via Adyen)",
+      "specialization_key": "ConnectorCommon|Adyen||get_auth_header",
+      "likely_infeasible": false
+    },
+    {
+      "modified_function": "Adyen#ConnectorCommon#get_auth_header",
+      "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "line": 124,
+      "endpoint": "POST /authentication/{merchant_id}/{authentication_id}/sync",
+      "handler": "authentication_sync",
+      "call_chain": [
+        "authentication_sync",
+        "authentication_sync_core",
+        "do_auth_connector_call",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guard_conditions": [
+        {
+          "function": "authentication_sync_core",
+          "type": "if",
+          "condition": "authentication_connector.is_pre_auth_required_in_post_authn_flow()",
+          "confidence": "high"
+        },
+        {
+          "function": "execute_connector_processing_step",
+          "type": "match",
+          "condition": "connector_request",
+          "confidence": "high"
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "type": "match",
+          "condition": "self",
+          "confidence": "high"
+        }
+      ],
+      "impact_status": "Conditionally Impacted (via Adyen)",
+      "specialization_key": "ConnectorCommon|Adyen||get_auth_header",
+      "likely_infeasible": false
+    },
+    {
+      "modified_function": "Adyen#ConnectorCommon#get_auth_header",
+      "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "line": 124,
+      "endpoint": "POST /disputes/evidence",
+      "handler": "submit_dispute_evidence",
+      "call_chain": [
+        "submit_dispute_evidence",
+        "submit_evidence",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guard_conditions": [
+        {
+          "function": "execute_connector_processing_step",
+          "type": "match",
+          "condition": "connector_request",
+          "confidence": "high"
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "type": "match",
+          "condition": "self",
+          "confidence": "high"
+        }
+      ],
+      "impact_status": "Conditionally Impacted (via Adyen)",
+      "specialization_key": "ConnectorCommon|Adyen||get_auth_header",
+      "likely_infeasible": false
+    },
+    {
+      "modified_function": "Adyen#ConnectorCommon#get_auth_header",
+      "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "line": 124,
+      "endpoint": "PUT /disputes/evidence",
+      "handler": "attach_dispute_evidence",
+      "call_chain": [
+        "attach_dispute_evidence",
+        "attach_evidence",
+        "files_create_core",
+        "upload_and_get_provider_provider_file_id_profile_id",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guard_conditions": [
+        {
+          "function": "upload_and_get_provider_provider_file_id_profile_id",
+          "type": "if",
+          "condition": "connector_data.connector_name.supports_file_storage_module()",
+          "confidence": "high"
+        },
+        {
+          "function": "execute_connector_processing_step",
+          "type": "match",
+          "condition": "connector_request",
+          "confidence": "high"
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "type": "match",
+          "condition": "self",
+          "confidence": "high"
+        }
+      ],
+      "impact_status": "Conditionally Impacted (via Adyen)",
+      "specialization_key": "ConnectorCommon|Adyen||get_auth_header",
+      "likely_infeasible": false
+    },
+    {
+      "modified_function": "Adyen#ConnectorCommon#get_auth_header",
+      "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "line": 124,
+      "endpoint": "GET /disputes/{connector_id}/fetch",
+      "handler": "fetch_disputes",
+      "call_chain": [
+        "fetch_disputes",
+        "connector_sync_disputes",
+        "fetch_disputes_from_connector",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guard_conditions": [
+        {
+          "function": "execute_connector_processing_step",
+          "type": "match",
+          "condition": "connector_request",
+          "confidence": "high"
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "type": "match",
+          "condition": "self",
+          "confidence": "high"
+        }
+      ],
+      "impact_status": "Conditionally Impacted (via Adyen)",
+      "specialization_key": "ConnectorCommon|Adyen||get_auth_header",
+      "likely_infeasible": false
+    },
+    {
+      "modified_function": "Adyen#ConnectorCommon#get_auth_header",
+      "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "line": 124,
+      "endpoint": "POST /files",
+      "handler": "files_create",
+      "call_chain": [
+        "files_create",
+        "files_create_core",
+        "upload_and_get_provider_provider_file_id_profile_id",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guard_conditions": [
+        {
+          "function": "upload_and_get_provider_provider_file_id_profile_id",
+          "type": "if",
+          "condition": "connector_data.connector_name.supports_file_storage_module()",
+          "confidence": "high"
+        },
+        {
+          "function": "execute_connector_processing_step",
+          "type": "match",
+          "condition": "connector_request",
+          "confidence": "high"
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "type": "match",
+          "condition": "self",
+          "confidence": "high"
+        }
+      ],
+      "impact_status": "Conditionally Impacted (via Adyen)",
+      "specialization_key": "ConnectorCommon|Adyen||get_auth_header",
+      "likely_infeasible": false
+    },
+    {
+      "modified_function": "Adyen#ConnectorCommon#get_auth_header",
+      "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "line": 124,
+      "endpoint": "GET /files/{file_id}",
+      "handler": "files_retrieve",
+      "call_chain": [
+        "files_retrieve",
+        "files_retrieve_core",
+        "retrieve_file_and_provider_file_id_from_file_id",
+        "retrieve_file_from_connector",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guard_conditions": [
+        {
+          "function": "retrieve_file_and_provider_file_id_from_file_id",
+          "type": "match",
+          "condition": "is_connector_file_data_required",
+          "confidence": "high"
+        },
+        {
+          "function": "execute_connector_processing_step",
+          "type": "match",
+          "condition": "connector_request",
+          "confidence": "high"
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "type": "match",
+          "condition": "self",
+          "confidence": "high"
+        }
+      ],
+      "impact_status": "Conditionally Impacted (via Adyen)",
+      "specialization_key": "ConnectorCommon|Adyen||get_auth_header",
+      "likely_infeasible": false
+    },
+    {
+      "modified_function": "Adyen#ConnectorCommon#get_auth_header",
+      "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "line": 124,
+      "endpoint": "GET /payments/redirect/{payment_id}/{merchant_id}/{attempt_id}",
+      "handler": "payments_start",
+      "call_chain": [
+        "payments_start",
+        "payments_core",
+        "payments_operation_core",
+        "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guard_conditions": [
+        {
+          "function": "payments_operation_core",
+          "type": "if_let",
+          "condition": "let Some(connector_details) = connector",
+          "confidence": "high"
+        },
+        {
+          "function": "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+          "type": "if",
+          "condition": "is_tax_connector_enabled && !skip_external_tax_calculation",
+          "confidence": "high"
+        },
+        {
+          "function": "execute_connector_processing_step",
+          "type": "match",
+          "condition": "connector_request",
+          "confidence": "high"
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "type": "match",
+          "condition": "self",
+          "confidence": "high"
+        }
+      ],
+      "impact_status": "Conditionally Impacted (via Adyen)",
+      "specialization_key": "ConnectorCommon|Adyen||get_auth_header",
+      "likely_infeasible": false
+    },
+    {
+      "modified_function": "Adyen#ConnectorCommon#get_auth_header",
+      "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "line": 124,
+      "endpoint": "POST /payments/session_tokens",
+      "handler": "payments_connector_session",
+      "call_chain": [
+        "payments_connector_session",
+        "payments_core",
+        "payments_operation_core",
+        "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guard_conditions": [
+        {
+          "function": "payments_operation_core",
+          "type": "if_let",
+          "condition": "let Some(connector_details) = connector",
+          "confidence": "high"
+        },
+        {
+          "function": "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+          "type": "if",
+          "condition": "is_tax_connector_enabled && !skip_external_tax_calculation",
+          "confidence": "high"
+        },
+        {
+          "function": "execute_connector_processing_step",
+          "type": "match",
+          "condition": "connector_request",
+          "confidence": "high"
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "type": "match",
+          "condition": "self",
+          "confidence": "high"
+        }
+      ],
+      "impact_status": "Conditionally Impacted (via Adyen)",
+      "specialization_key": "ConnectorCommon|Adyen||get_auth_header",
+      "likely_infeasible": false
+    },
+    {
+      "modified_function": "Adyen#ConnectorCommon#get_auth_header",
+      "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "line": 124,
+      "endpoint": "POST /payments/sync",
+      "handler": "payments_retrieve_with_gateway_creds",
+      "call_chain": [
+        "payments_retrieve_with_gateway_creds",
+        "payments_core",
+        "payments_operation_core",
+        "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guard_conditions": [
+        {
+          "function": "payments_operation_core",
+          "type": "if_let",
+          "condition": "let Some(connector_details) = connector",
+          "confidence": "high"
+        },
+        {
+          "function": "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+          "type": "if",
+          "condition": "is_tax_connector_enabled && !skip_external_tax_calculation",
+          "confidence": "high"
+        },
+        {
+          "function": "execute_connector_processing_step",
+          "type": "match",
+          "condition": "connector_request",
+          "confidence": "high"
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "type": "match",
+          "condition": "self",
+          "confidence": "high"
+        }
+      ],
+      "impact_status": "Conditionally Impacted (via Adyen)",
+      "specialization_key": "ConnectorCommon|Adyen||get_auth_header",
+      "likely_infeasible": false
+    },
+    {
+      "modified_function": "Adyen#ConnectorCommon#get_auth_header",
+      "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "line": 124,
+      "endpoint": "GET /payments/{payment_id}",
+      "handler": "payments_retrieve",
+      "call_chain": [
+        "payments_retrieve",
+        "payments_core",
+        "payments_operation_core",
+        "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guard_conditions": [
+        {
+          "function": "payments_operation_core",
+          "type": "if_let",
+          "condition": "let Some(connector_details) = connector",
+          "confidence": "high"
+        },
+        {
+          "function": "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+          "type": "if",
+          "condition": "is_tax_connector_enabled && !skip_external_tax_calculation",
+          "confidence": "high"
+        },
+        {
+          "function": "execute_connector_processing_step",
+          "type": "match",
+          "condition": "connector_request",
+          "confidence": "high"
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "type": "match",
+          "condition": "self",
+          "confidence": "high"
+        }
+      ],
+      "impact_status": "Conditionally Impacted (via Adyen)",
+      "specialization_key": "ConnectorCommon|Adyen||get_auth_header",
+      "likely_infeasible": false
+    },
+    {
+      "modified_function": "Adyen#ConnectorCommon#get_auth_header",
+      "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "line": 124,
+      "endpoint": "POST /payments/{payment_id}/3ds/authentication",
+      "handler": "payments_external_authentication",
+      "call_chain": [
+        "payments_external_authentication",
+        "payment_external_authentication",
+        "ExternalAuthentication#UnifiedAuthenticationService#authentication",
+        "do_auth_connector_call",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guard_conditions": [
+        {
+          "function": "payment_external_authentication",
+          "type": "if",
+          "condition": "helpers::is_merchant_eligible_authentication_service(\n        platform.get_processor().get_account().get_id(),\n        &state,\n    )\n    .await?",
+          "confidence": "high"
+        },
+        {
+          "function": "execute_connector_processing_step",
+          "type": "match",
+          "condition": "connector_request",
+          "confidence": "high"
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "type": "match",
+          "condition": "self",
+          "confidence": "high"
+        }
+      ],
+      "impact_status": "Conditionally Impacted (via Adyen)",
+      "specialization_key": "ConnectorCommon|Adyen||get_auth_header",
+      "likely_infeasible": false
+    },
+    {
+      "modified_function": "Adyen#ConnectorCommon#get_auth_header",
+      "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "line": 124,
+      "endpoint": "POST /payments/{payment_id}/approve",
+      "handler": "payments_approve",
+      "call_chain": [
+        "payments_approve",
+        "payments_core",
+        "payments_operation_core",
+        "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guard_conditions": [
+        {
+          "function": "payments_operation_core",
+          "type": "if_let",
+          "condition": "let Some(connector_details) = connector",
+          "confidence": "high"
+        },
+        {
+          "function": "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+          "type": "if",
+          "condition": "is_tax_connector_enabled && !skip_external_tax_calculation",
+          "confidence": "high"
+        },
+        {
+          "function": "execute_connector_processing_step",
+          "type": "match",
+          "condition": "connector_request",
+          "confidence": "high"
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "type": "match",
+          "condition": "self",
+          "confidence": "high"
+        }
+      ],
+      "impact_status": "Conditionally Impacted (via Adyen)",
+      "specialization_key": "ConnectorCommon|Adyen||get_auth_header",
+      "likely_infeasible": false
+    },
+    {
+      "modified_function": "Adyen#ConnectorCommon#get_auth_header",
+      "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "line": 124,
+      "endpoint": "POST /payments/{payment_id}/calculate_tax",
+      "handler": "payments_dynamic_tax_calculation",
+      "call_chain": [
+        "payments_dynamic_tax_calculation",
+        "payments_core",
+        "payments_operation_core",
+        "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guard_conditions": [
+        {
+          "function": "payments_operation_core",
+          "type": "if_let",
+          "condition": "let Some(connector_details) = connector",
+          "confidence": "high"
+        },
+        {
+          "function": "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+          "type": "if",
+          "condition": "is_tax_connector_enabled && !skip_external_tax_calculation",
+          "confidence": "high"
+        },
+        {
+          "function": "execute_connector_processing_step",
+          "type": "match",
+          "condition": "connector_request",
+          "confidence": "high"
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "type": "match",
+          "condition": "self",
+          "confidence": "high"
+        }
+      ],
+      "impact_status": "Conditionally Impacted (via Adyen)",
+      "specialization_key": "ConnectorCommon|Adyen||get_auth_header",
+      "likely_infeasible": false
+    },
+    {
+      "modified_function": "Adyen#ConnectorCommon#get_auth_header",
+      "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "line": 124,
+      "endpoint": "POST /payments/{payment_id}/cancel",
+      "handler": "payments_cancel",
+      "call_chain": [
+        "payments_cancel",
+        "payments_core",
+        "payments_operation_core",
+        "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guard_conditions": [
+        {
+          "function": "payments_operation_core",
+          "type": "if_let",
+          "condition": "let Some(connector_details) = connector",
+          "confidence": "high"
+        },
+        {
+          "function": "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+          "type": "if",
+          "condition": "is_tax_connector_enabled && !skip_external_tax_calculation",
+          "confidence": "high"
+        },
+        {
+          "function": "execute_connector_processing_step",
+          "type": "match",
+          "condition": "connector_request",
+          "confidence": "high"
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "type": "match",
+          "condition": "self",
+          "confidence": "high"
+        }
+      ],
+      "impact_status": "Conditionally Impacted (via Adyen)",
+      "specialization_key": "ConnectorCommon|Adyen||get_auth_header",
+      "likely_infeasible": false
+    },
+    {
+      "modified_function": "Adyen#ConnectorCommon#get_auth_header",
+      "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "line": 124,
+      "endpoint": "POST /payments/{payment_id}/cancel_post_capture",
+      "handler": "payments_cancel_post_capture",
+      "call_chain": [
+        "payments_cancel_post_capture",
+        "payments_core",
+        "payments_operation_core",
+        "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guard_conditions": [
+        {
+          "function": "payments_operation_core",
+          "type": "if_let",
+          "condition": "let Some(connector_details) = connector",
+          "confidence": "high"
+        },
+        {
+          "function": "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+          "type": "if",
+          "condition": "is_tax_connector_enabled && !skip_external_tax_calculation",
+          "confidence": "high"
+        },
+        {
+          "function": "execute_connector_processing_step",
+          "type": "match",
+          "condition": "connector_request",
+          "confidence": "high"
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "type": "match",
+          "condition": "self",
+          "confidence": "high"
+        }
+      ],
+      "impact_status": "Conditionally Impacted (via Adyen)",
+      "specialization_key": "ConnectorCommon|Adyen||get_auth_header",
+      "likely_infeasible": false
+    },
+    {
+      "modified_function": "Adyen#ConnectorCommon#get_auth_header",
+      "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "line": 124,
+      "endpoint": "POST /payments/{payment_id}/capture",
+      "handler": "payments_capture",
+      "call_chain": [
+        "payments_capture",
+        "payments_core",
+        "payments_operation_core",
+        "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guard_conditions": [
+        {
+          "function": "payments_operation_core",
+          "type": "if_let",
+          "condition": "let Some(connector_details) = connector",
+          "confidence": "high"
+        },
+        {
+          "function": "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+          "type": "if",
+          "condition": "is_tax_connector_enabled && !skip_external_tax_calculation",
+          "confidence": "high"
+        },
+        {
+          "function": "execute_connector_processing_step",
+          "type": "match",
+          "condition": "connector_request",
+          "confidence": "high"
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "type": "match",
+          "condition": "self",
+          "confidence": "high"
+        }
+      ],
+      "impact_status": "Conditionally Impacted (via Adyen)",
+      "specialization_key": "ConnectorCommon|Adyen||get_auth_header",
+      "likely_infeasible": false
+    },
+    {
+      "modified_function": "Adyen#ConnectorCommon#get_auth_header",
+      "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "line": 124,
+      "endpoint": "POST /payments/{payment_id}/complete_authorize",
+      "handler": "payments_complete_authorize",
+      "call_chain": [
+        "payments_complete_authorize",
+        "payments_core",
+        "payments_operation_core",
+        "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guard_conditions": [
+        {
+          "function": "payments_operation_core",
+          "type": "if_let",
+          "condition": "let Some(connector_details) = connector",
+          "confidence": "high"
+        },
+        {
+          "function": "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+          "type": "if",
+          "condition": "is_tax_connector_enabled && !skip_external_tax_calculation",
+          "confidence": "high"
+        },
+        {
+          "function": "execute_connector_processing_step",
+          "type": "match",
+          "condition": "connector_request",
+          "confidence": "high"
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "type": "match",
+          "condition": "self",
+          "confidence": "high"
+        }
+      ],
+      "impact_status": "Conditionally Impacted (via Adyen)",
+      "specialization_key": "ConnectorCommon|Adyen||get_auth_header",
+      "likely_infeasible": false
+    },
+    {
+      "modified_function": "Adyen#ConnectorCommon#get_auth_header",
+      "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "line": 124,
+      "endpoint": "POST /payments/{payment_id}/extend_authorization",
+      "handler": "payments_extend_authorization",
+      "call_chain": [
+        "payments_extend_authorization",
+        "payments_core",
+        "payments_operation_core",
+        "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guard_conditions": [
+        {
+          "function": "payments_operation_core",
+          "type": "if_let",
+          "condition": "let Some(connector_details) = connector",
+          "confidence": "high"
+        },
+        {
+          "function": "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+          "type": "if",
+          "condition": "is_tax_connector_enabled && !skip_external_tax_calculation",
+          "confidence": "high"
+        },
+        {
+          "function": "execute_connector_processing_step",
+          "type": "match",
+          "condition": "connector_request",
+          "confidence": "high"
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "type": "match",
+          "condition": "self",
+          "confidence": "high"
+        }
+      ],
+      "impact_status": "Conditionally Impacted (via Adyen)",
+      "specialization_key": "ConnectorCommon|Adyen||get_auth_header",
+      "likely_infeasible": false
+    },
+    {
+      "modified_function": "Adyen#ConnectorCommon#get_auth_header",
+      "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "line": 124,
+      "endpoint": "POST /payments/{payment_id}/incremental_authorization",
+      "handler": "payments_incremental_authorization",
+      "call_chain": [
+        "payments_incremental_authorization",
+        "payments_core",
+        "payments_operation_core",
+        "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guard_conditions": [
+        {
+          "function": "payments_operation_core",
+          "type": "if_let",
+          "condition": "let Some(connector_details) = connector",
+          "confidence": "high"
+        },
+        {
+          "function": "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+          "type": "if",
+          "condition": "is_tax_connector_enabled && !skip_external_tax_calculation",
+          "confidence": "high"
+        },
+        {
+          "function": "execute_connector_processing_step",
+          "type": "match",
+          "condition": "connector_request",
+          "confidence": "high"
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "type": "match",
+          "condition": "self",
+          "confidence": "high"
+        }
+      ],
+      "impact_status": "Conditionally Impacted (via Adyen)",
+      "specialization_key": "ConnectorCommon|Adyen||get_auth_header",
+      "likely_infeasible": false
+    },
+    {
+      "modified_function": "Adyen#ConnectorCommon#get_auth_header",
+      "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "line": 124,
+      "endpoint": "POST /payments/{payment_id}/post_session_tokens",
+      "handler": "payments_post_session_tokens",
+      "call_chain": [
+        "payments_post_session_tokens",
+        "payments_core",
+        "payments_operation_core",
+        "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guard_conditions": [
+        {
+          "function": "payments_operation_core",
+          "type": "if_let",
+          "condition": "let Some(connector_details) = connector",
+          "confidence": "high"
+        },
+        {
+          "function": "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+          "type": "if",
+          "condition": "is_tax_connector_enabled && !skip_external_tax_calculation",
+          "confidence": "high"
+        },
+        {
+          "function": "execute_connector_processing_step",
+          "type": "match",
+          "condition": "connector_request",
+          "confidence": "high"
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "type": "match",
+          "condition": "self",
+          "confidence": "high"
+        }
+      ],
+      "impact_status": "Conditionally Impacted (via Adyen)",
+      "specialization_key": "ConnectorCommon|Adyen||get_auth_header",
+      "likely_infeasible": false
+    },
+    {
+      "modified_function": "Adyen#ConnectorCommon#get_auth_header",
+      "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "line": 124,
+      "endpoint": "POST /payments/{payment_id}/reject",
+      "handler": "payments_reject",
+      "call_chain": [
+        "payments_reject",
+        "payments_core",
+        "payments_operation_core",
+        "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guard_conditions": [
+        {
+          "function": "payments_operation_core",
+          "type": "if_let",
+          "condition": "let Some(connector_details) = connector",
+          "confidence": "high"
+        },
+        {
+          "function": "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+          "type": "if",
+          "condition": "is_tax_connector_enabled && !skip_external_tax_calculation",
+          "confidence": "high"
+        },
+        {
+          "function": "execute_connector_processing_step",
+          "type": "match",
+          "condition": "connector_request",
+          "confidence": "high"
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "type": "match",
+          "condition": "self",
+          "confidence": "high"
+        }
+      ],
+      "impact_status": "Conditionally Impacted (via Adyen)",
+      "specialization_key": "ConnectorCommon|Adyen||get_auth_header",
+      "likely_infeasible": false
+    },
+    {
+      "modified_function": "Adyen#ConnectorCommon#get_auth_header",
+      "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "line": 124,
+      "endpoint": "POST /payments/{payment_id}/update_metadata",
+      "handler": "payments_update_metadata",
+      "call_chain": [
+        "payments_update_metadata",
+        "payments_core",
+        "payments_operation_core",
+        "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guard_conditions": [
+        {
+          "function": "payments_operation_core",
+          "type": "if_let",
+          "condition": "let Some(connector_details) = connector",
+          "confidence": "high"
+        },
+        {
+          "function": "PaymentSessionUpdate#Domain#payments_dynamic_tax_calculation",
+          "type": "if",
+          "condition": "is_tax_connector_enabled && !skip_external_tax_calculation",
+          "confidence": "high"
+        },
+        {
+          "function": "execute_connector_processing_step",
+          "type": "match",
+          "condition": "connector_request",
+          "confidence": "high"
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "type": "match",
+          "condition": "self",
+          "confidence": "high"
+        }
+      ],
+      "impact_status": "Conditionally Impacted (via Adyen)",
+      "specialization_key": "ConnectorCommon|Adyen||get_auth_header",
+      "likely_infeasible": false
+    },
+    {
+      "modified_function": "Adyen#ConnectorCommon#get_auth_header",
+      "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "line": 124,
+      "endpoint": "GET /subscriptions/items",
+      "handler": "get_subscription_items",
+      "call_chain": [
+        "get_subscription_items",
+        "BillingHandler#get_subscription_items",
+        "BillingHandler#call_connector",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guard_conditions": [
+        {
+          "function": "execute_connector_processing_step",
+          "type": "match",
+          "condition": "connector_request",
+          "confidence": "high"
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "type": "match",
+          "condition": "self",
+          "confidence": "high"
+        }
+      ],
+      "impact_status": "Conditionally Impacted (via Adyen)",
+      "specialization_key": "ConnectorCommon|Adyen||get_auth_header",
+      "likely_infeasible": false
+    },
+    {
+      "modified_function": "Adyen#ConnectorCommon#get_auth_header",
+      "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "line": 124,
+      "endpoint": "GET /subscriptions/list_with_count",
+      "handler": "customers_list_with_count",
+      "call_chain": [
+        "customers_list_with_count",
+        "list_customers_with_count",
+        "MockDb#CustomerInterface#list_customers_by_merchant_id_with_count",
+        "create_recipient_disburse_account",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guard_conditions": [
+        {
+          "function": "execute_connector_processing_step",
+          "type": "match",
+          "condition": "connector_request",
+          "confidence": "high"
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "type": "match",
+          "condition": "self",
+          "confidence": "high"
+        }
+      ],
+      "impact_status": "Conditionally Impacted (via Adyen)",
+      "specialization_key": "ConnectorCommon|Adyen||get_auth_header",
+      "likely_infeasible": false
+    },
+    {
+      "modified_function": "Adyen#ConnectorCommon#get_auth_header",
+      "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "line": 124,
+      "endpoint": "POST /webhooks/frm_fulfillment",
+      "handler": "frm_fulfillment",
+      "call_chain": [
+        "frm_fulfillment",
+        "frm_fulfillment_core",
+        "make_fulfillment_api_call",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guard_conditions": [
+        {
+          "function": "frm_fulfillment_core",
+          "type": "if",
+          "condition": "(matches!(fraud_check.frm_transaction_type, FraudCheckType::PreFrm)\n                        && fraud_check.last_step == FraudCheckLastStep::TransactionOrRecordRefund)\n                        || (match",
+          "confidence": "high"
+        },
+        {
+          "function": "execute_connector_processing_step",
+          "type": "match",
+          "condition": "connector_request",
+          "confidence": "high"
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "type": "match",
+          "condition": "self",
+          "confidence": "high"
+        }
+      ],
+      "impact_status": "Conditionally Impacted (via Adyen)",
+      "specialization_key": "ConnectorCommon|Adyen||get_auth_header",
+      "likely_infeasible": false
+    },
+    {
+      "modified_function": "Adyen#ConnectorCommon#get_auth_header",
+      "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "line": 124,
+      "endpoint": "GET /{payout_id}",
+      "handler": "payouts_retrieve",
+      "call_chain": [
+        "payouts_retrieve",
+        "payouts_retrieve_core",
+        "complete_payout_retrieve",
+        "create_payout_retrieve",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guard_conditions": [
+        {
+          "function": "payouts_retrieve_core",
+          "type": "if",
+          "condition": "matches!(req.force_sync, Some(true)) && helpers::should_call_retrieve(status)",
+          "confidence": "high"
+        },
+        {
+          "function": "complete_payout_retrieve",
+          "type": "match",
+          "condition": "connector_call_type",
+          "confidence": "high"
+        },
+        {
+          "function": "create_payout_retrieve",
+          "type": "match",
+          "condition": "helpers::should_continue_payout(&router_data)",
+          "confidence": "high"
+        },
+        {
+          "function": "execute_connector_processing_step",
+          "type": "match",
+          "condition": "connector_request",
+          "confidence": "high"
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "type": "match",
+          "condition": "self",
+          "confidence": "high"
+        }
+      ],
+      "impact_status": "Conditionally Impacted (via Adyen)",
+      "specialization_key": "ConnectorCommon|Adyen||get_auth_header",
+      "likely_infeasible": false
+    },
+    {
+      "modified_function": "Adyen#ConnectorCommon#get_auth_header",
+      "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "line": 124,
+      "endpoint": "POST /{payout_id}/cancel",
+      "handler": "payouts_cancel",
+      "call_chain": [
+        "payouts_cancel",
+        "payouts_cancel_core",
+        "cancel_payout",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guard_conditions": [
+        {
+          "function": "payouts_cancel_core",
+          "type": "if",
+          "condition": "helpers::is_eligible_for_local_payout_cancellation(status)",
+          "confidence": "high"
+        },
+        {
+          "function": "execute_connector_processing_step",
+          "type": "match",
+          "condition": "connector_request",
+          "confidence": "high"
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "type": "match",
+          "condition": "self",
+          "confidence": "high"
+        }
+      ],
+      "impact_status": "Conditionally Impacted (via Adyen)",
+      "specialization_key": "ConnectorCommon|Adyen||get_auth_header",
+      "likely_infeasible": false
+    },
+    {
+      "modified_function": "Adyen#ConnectorCommon#get_auth_header",
+      "file": "crates/hyperswitch_connectors/src/connectors/adyen.rs",
+      "line": 124,
+      "endpoint": "POST /{payout_id}/fulfill",
+      "handler": "payouts_fulfill",
+      "call_chain": [
+        "payouts_fulfill",
+        "payouts_fulfill_core",
+        "fulfill_payout",
+        "execute_connector_processing_step",
+        "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+        "Adyen#ConnectorIntegration#build_request",
+        "Adyen#ConnectorIntegration#get_headers",
+        "Adyen#ConnectorCommon#get_auth_header"
+      ],
+      "guard_conditions": [
+        {
+          "function": "fulfill_payout",
+          "type": "match",
+          "condition": "helpers::should_continue_payout(&router_data)",
+          "confidence": "high"
+        },
+        {
+          "function": "execute_connector_processing_step",
+          "type": "match",
+          "condition": "connector_request",
+          "confidence": "high"
+        },
+        {
+          "function": "ConnectorIntegrationEnum#ConnectorIntegrationInterface#build_request",
+          "type": "match",
+          "condition": "self",
+          "confidence": "high"
+        }
+      ],
+      "impact_status": "Conditionally Impacted (via Adyen)",
+      "specialization_key": "ConnectorCommon|Adyen||get_auth_header",
+      "likely_infeasible": false
+    }
+  ],
+  "infeasible_paths": []
+}
