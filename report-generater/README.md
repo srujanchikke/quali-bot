@@ -48,6 +48,7 @@ This:
 | `FLOW_JSON` | `testing_agent/input.json` | Flow JSON to run |
 | `BASE_URL` | `http://127.0.0.1:8080` | Router base URL |
 | `SKIP_RUN` | `0` | If `1`, skip cypress run (just generate coverage) |
+| `BUILD_INSTRUMENTED_ROUTER` | `0` | Rebuild router with `-Cinstrument-coverage` before run |
 
 #### Example
 

@@ -174,9 +174,9 @@ What it expects:
 
 This is the main reporting workflow.
 
-Before running it, make sure your local Hyperswitch router binary is built with
-LLVM coverage instrumentation. The script expects an already-built instrumented
-binary at `target/debug/router`.
+Before running it, make sure your local Hyperswitch router binary is already built
+with LLVM coverage instrumentation. The script reuses the existing binary at
+`target/debug/router` by default.
 
 Build it from your local `hyperswitch` checkout:
 
@@ -191,6 +191,8 @@ Important:
 - The Cypress setup specs in `cypress-tests` call v1 admin routes such as `/accounts`.
 - If you rebuild the router without `RUSTFLAGS="-Cinstrument-coverage"`, `.profraw`
   files will not be generated and coverage output will be partial.
+- If you do want the script to rebuild the binary for you, run it with
+  `BUILD_INSTRUMENTED_ROUTER=1`.
 
 ```bash
 bash report-generater/run_flow_coverage_report.sh

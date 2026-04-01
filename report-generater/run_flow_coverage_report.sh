@@ -15,6 +15,7 @@ set -euo pipefail
 #   CYPRESS_REPO       - If set, overrides CYPRESS_TESTS_ROOT for flow pipeline / Cypress repo path
 #   FLOW_JSON          - Path to flow JSON file
 #   SKIP_RUN           - If 1, skip cypress run (just generate coverage)
+#   BUILD_INSTRUMENTED_ROUTER - If 1, rebuild router with LLVM instrumentation before run
 #   BASE_URL           - Router base URL (default: http://localhost:8080; use "localhost" for Cypress)
 #   HEALTH_PATH        - Health check path; if unset, tries /health (v1) then /v2/health (v2-only)
 #
@@ -33,6 +34,7 @@ CYPRESS_TESTS_ROOT="${CYPRESS_TESTS_ROOT:-${HYPERSWITCH_ROOT}/cypress-tests}"
 CYPRESS_REPO_RESOLVED="${CYPRESS_REPO:-${CYPRESS_TESTS_ROOT}}"
 FLOW_JSON="${FLOW_JSON:-${PROJECT_ROOT}/testing_agent/input.json}"
 SKIP_RUN="${SKIP_RUN:-0}"
+BUILD_INSTRUMENTED_ROUTER="${BUILD_INSTRUMENTED_ROUTER:-0}"
 
 # Output directories
 OUT_BASE="${RG_ROOT}/output"
@@ -201,6 +203,14 @@ cleanup_router() {
 trap cleanup_router EXIT
 
 if [[ "${SKIP_RUN}" != "1" ]]; then
+  if [[ "${BUILD_INSTRUMENTED_ROUTER}" == "1" ]]; then
+    sep "Building instrumented router binary"
+    (
+      cd "${HYPERSWITCH_ROOT}"
+      RUSTFLAGS="-Cinstrument-coverage" cargo build -p router --bin router
+    )
+  fi
+
   sep "Starting hyperswitch router with LLVM coverage"
   echo "  Config: ${ROUTER_CONFIG}"
   echo "  Log: ${ROUTER_LOG}"
@@ -208,13 +218,42 @@ if [[ "${SKIP_RUN}" != "1" ]]; then
   
   : > "${ROUTER_LOG}"
   
-  # Use pre-built instrumented binary instead of cargo run
+  # Prefer the top-level bin path, but fall back to the newest executable emitted
+  # under target/debug/deps after clean builds where cargo does not recreate the
+  # plain target/debug/router launcher file.
   ROUTER_BIN="${HYPERSWITCH_ROOT}/target/debug/router"
+  if [[ ! -x "${ROUTER_BIN}" ]]; then
+    ROUTER_BIN="$(python3 - "${HYPERSWITCH_ROOT}" <<'PY'
+import os
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1]) / "target" / "debug" / "deps"
+candidates = []
+if root.is_dir():
+    for path in root.glob("router-*"):
+        try:
+            st = path.stat()
+        except FileNotFoundError:
+            continue
+        if path.is_file() and os.access(path, os.X_OK):
+            candidates.append((st.st_mtime, str(path)))
+
+print(max(candidates)[1] if candidates else "")
+PY
+)"
+  fi
   
   if [[ ! -x "${ROUTER_BIN}" ]]; then
     echo "ERROR: Instrumented router binary not found at ${ROUTER_BIN}" >&2
     echo "Build it first with: RUSTFLAGS=\"-Cinstrument-coverage\" cargo build --bin router" >&2
     exit 1
+  fi
+
+  if ! strings "${ROUTER_BIN}" | grep -Eq "__llvm_profile|LLVM Profile|\\.llvm\\."; then
+    echo "WARN: Router binary could not be confidently verified as LLVM-instrumented: ${ROUTER_BIN}" >&2
+    echo "  Continuing with the existing build. If no .profraw files are generated, rebuild with:" >&2
+    echo "  RUSTFLAGS=\"-Cinstrument-coverage\" cargo build -p router --bin router" >&2
   fi
   
   cd "${HYPERSWITCH_ROOT}"

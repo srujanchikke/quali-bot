@@ -885,6 +885,15 @@ export default function App() {
                 <CollapsibleSection title="Router logs">
                   <ArtifactFilePanel text={run.rawFiles['router_run.log']} />
                 </CollapsibleSection>
+                <CollapsibleSection title="Final report">
+                  <ArtifactFilePanel
+                    text={
+                      run.rawFiles['final_report.json']
+                        ? `${JSON.stringify(run.finalReport ?? parseJsonObject(run.rawFiles['final_report.json']), null, 2)}`
+                        : undefined
+                    }
+                  />
+                </CollapsibleSection>
               </>
             ) : null}
           </div>
