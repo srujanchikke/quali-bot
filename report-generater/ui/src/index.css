@@ -49,6 +49,12 @@
   --app-error-fg: #fecaca;
   --app-error-code: #fca5a5;
   --app-error-border: rgba(239, 68, 68, 0.35);
+  --app-json-key: #7dd3fc;
+  --app-json-string: #86efac;
+  --app-json-number: #fbbf24;
+  --app-json-boolean: #c4b5fd;
+  --app-json-null: #94a3b8;
+  --app-json-source: #e2e8f0;
   --app-node-shadow: 0 0 0 1px rgba(59, 130, 246, 0.15),
     0 20px 50px -20px rgba(0, 0, 0, 0.6);
 }
@@ -81,6 +87,12 @@
   --app-error-fg: #991b1b;
   --app-error-code: #b91c1c;
   --app-error-border: rgba(239, 68, 68, 0.35);
+  --app-json-key: #1d4ed8;
+  --app-json-string: #047857;
+  --app-json-number: #b45309;
+  --app-json-boolean: #7c3aed;
+  --app-json-null: #6b7280;
+  --app-json-source: #111827;
   --app-node-shadow: 0 1px 2px rgba(17, 24, 39, 0.06),
     0 12px 32px -8px rgba(17, 24, 39, 0.08);
 }

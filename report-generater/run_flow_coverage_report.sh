@@ -54,6 +54,9 @@ CYPRESS_PARSED_JSON="${OUT_DIR}/cypress_parsed.json"
 
 mkdir -p "${OUT_DIR}" "${PROFRAW_DIR}"
 cp "${FLOW_JSON}" "${INPUT_JSON_COPY}"
+python3 "${RG_ROOT}/enrich_flow_json_sources.py" \
+  --repo-root "${HYPERSWITCH_ROOT}" \
+  "${INPUT_JSON_COPY}" >/dev/null 2>&1 || true
 
 # Persist the full script stdout/stderr so the UI can show the same terminal stream.
 : > "${TERMINAL_LOG}"
@@ -259,9 +262,7 @@ PY
   fi
   
   cd "${HYPERSWITCH_ROOT}"
-  # LLVM-instrumented builds have larger stack frames per function; set a generous
-  # per-thread stack size so actix worker threads don't overflow under coverage.
-  RUST_MIN_STACK=20108864 "${ROUTER_BIN}" -f "${ROUTER_CONFIG}" >> "${ROUTER_LOG}" 2>&1 &
+  "${ROUTER_BIN}" -f "${ROUTER_CONFIG}" >> "${ROUTER_LOG}" 2>&1 &
   ROUTER_PID=$!
   cd "${PROJECT_ROOT}"
   

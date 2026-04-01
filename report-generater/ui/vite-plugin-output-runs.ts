@@ -119,6 +119,7 @@ function listRunTree(runRoot: string, prefix = '', relativePath = ''): string[] 
 function attachOutputRunsMiddleware(
   middlewares: ViteDevServer['middlewares'],
   outputRoot: string,
+  sourceRoot: string,
 ) {
   middlewares.use((req, res, next) => {
     const url = req.url?.split('?')[0] ?? ''
@@ -166,6 +167,32 @@ function attachOutputRunsMiddleware(
       }
       res.setHeader('Content-Type', 'application/json')
       res.end(JSON.stringify({ files: [`${runId}/`, ...listRunTree(resolvedRunRoot)] }))
+      return
+    }
+
+    const sourceMatch = url.match(/^\/api\/source-file\/(.+)$/)
+    if (sourceMatch && req.method === 'GET') {
+      const relPath = decodeURIComponent(sourceMatch[1])
+      if (relPath.includes('..') || relPath.startsWith('/')) {
+        res.statusCode = 403
+        res.end()
+        return
+      }
+      const filePath = path.join(sourceRoot, relPath)
+      const resolvedRoot = path.resolve(sourceRoot)
+      const resolvedFile = path.resolve(filePath)
+      if (!resolvedFile.startsWith(resolvedRoot + path.sep) && resolvedFile !== resolvedRoot) {
+        res.statusCode = 403
+        res.end()
+        return
+      }
+      if (!fs.existsSync(resolvedFile) || !fs.statSync(resolvedFile).isFile()) {
+        res.statusCode = 404
+        res.end()
+        return
+      }
+      res.setHeader('Content-Type', contentTypeFor(resolvedFile))
+      fs.createReadStream(resolvedFile).pipe(res)
       return
     }
 
@@ -237,15 +264,16 @@ function attachOutputRunsMiddleware(
   })
 }
 
-export function outputRunsPlugin(outputRoot: string) {
+export function outputRunsPlugin(outputRoot: string, sourceRoot: string) {
   const resolved = path.resolve(outputRoot)
+  const resolvedSourceRoot = path.resolve(sourceRoot)
   return {
     name: 'output-runs',
     configureServer(server: ViteDevServer) {
-      attachOutputRunsMiddleware(server.middlewares, resolved)
+      attachOutputRunsMiddleware(server.middlewares, resolved, resolvedSourceRoot)
     },
     configurePreviewServer(server: PreviewServer) {
-      attachOutputRunsMiddleware(server.middlewares, resolved)
+      attachOutputRunsMiddleware(server.middlewares, resolved, resolvedSourceRoot)
     },
   }
 }

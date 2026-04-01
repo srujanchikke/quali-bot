@@ -14,7 +14,7 @@ Usage:
         --request-id "abc123" \
         --router-log router_run.log \
         --coverage-report coverage_run_report.json \
-        --flow-json input.json \
+        --flow-json adyen_get_auth_header_output.json \
         --cypress-parsed cypress_parsed.json \
         --out final_report.json
 """
@@ -201,7 +201,7 @@ def main() -> int:
     ap.add_argument("--request-id", required=True, help="Request ID to correlate")
     ap.add_argument("--router-log", type=Path, required=True, help="Router log file")
     ap.add_argument("--coverage-report", type=Path, required=True, help="Coverage diff JSON")
-    ap.add_argument("--flow-json", type=Path, default=None, help="Flow JSON (e.g., input.json)")
+    ap.add_argument("--flow-json", type=Path, default=None, help="Flow JSON (e.g., adyen_get_auth_header_output.json)")
     ap.add_argument("--cypress-parsed", type=Path, default=None, help="Parsed cypress output JSON")
     ap.add_argument("--out", type=Path, required=True, help="Output report JSON path")
     args = ap.parse_args()
