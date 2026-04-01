@@ -132,6 +132,7 @@ export type LoadedRun = {
   finalReport?: FinalReport
   pathFlow?: PathFlowArtifact
   coverageReport?: CoverageRunReport
+  outputTree?: string[]
   /** Original filenames → contents */
   rawFiles: Record<string, string>
 }

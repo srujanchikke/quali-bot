@@ -32,7 +32,7 @@ HYPERSWITCH_ROOT="${HYPERSWITCH_ROOT:-${HOME}/hyperswitch}"
 CYPRESS_TESTS_ROOT="${CYPRESS_TESTS_ROOT:-${HYPERSWITCH_ROOT}/cypress-tests}"
 # Prefer explicit CYPRESS_REPO when set (alternate clone path); else use CYPRESS_TESTS_ROOT.
 CYPRESS_REPO_RESOLVED="${CYPRESS_REPO:-${CYPRESS_TESTS_ROOT}}"
-FLOW_JSON="${FLOW_JSON:-${PROJECT_ROOT}/testing_agent/input.json}"
+FLOW_JSON="${FLOW_JSON:-${PROJECT_ROOT}/testing_agent/adyen_get_auth_header_output.json}"
 SKIP_RUN="${SKIP_RUN:-0}"
 BUILD_INSTRUMENTED_ROUTER="${BUILD_INSTRUMENTED_ROUTER:-0}"
 
@@ -43,6 +43,7 @@ OUT_DIR="${OUT_BASE}/${RUN_ID}"
 PROFRAW_DIR="${OUT_DIR}/profraw"
 ROUTER_LOG="${OUT_DIR}/router_run.log"
 TERMINAL_LOG="${OUT_DIR}/terminal_output.log"
+INPUT_JSON_COPY="${OUT_DIR}/input.json"
 LCOV_FILE="${OUT_DIR}/lcov.info"
 HTML_DIR="${OUT_DIR}/coverage-html"
 DIFF_JSON="${OUT_DIR}/coverage_run_report.json"
@@ -52,6 +53,7 @@ FLOW_RUN_LOG="${OUT_DIR}/flow_pipeline.log"
 CYPRESS_PARSED_JSON="${OUT_DIR}/cypress_parsed.json"
 
 mkdir -p "${OUT_DIR}" "${PROFRAW_DIR}"
+cp "${FLOW_JSON}" "${INPUT_JSON_COPY}"
 
 # Persist the full script stdout/stderr so the UI can show the same terminal stream.
 : > "${TERMINAL_LOG}"
@@ -494,6 +496,7 @@ Target leaf: ${TARGET_LEAF}
 Request IDs: ${REQUEST_IDS:-none}
 
 Artifacts:
+- Input flow JSON: ${INPUT_JSON_COPY}
 - Terminal log: ${TERMINAL_LOG}
 - Router log: ${ROUTER_LOG}
 - Flow pipeline log: ${FLOW_RUN_LOG}

@@ -225,6 +225,11 @@ export default function App() {
     }
   }, [run])
 
+  const coverageHtmlUrl = useMemo(() => {
+    if (!run?.id) return null
+    return `/api/run-html/${encodeURIComponent(run.id)}/index.html`
+  }, [run?.id])
+
   const cypressParsed = useMemo(
     () => parseJsonObject(run?.rawFiles['cypress_parsed.json']) as
       | {
@@ -875,7 +880,28 @@ export default function App() {
 
             {activeTab === 'artifacts' ? (
               <>
-                <CollapsibleSection title="Terminal logs" defaultOpen>
+                <CollapsibleSection title="Run folder file structure" defaultOpen>
+                  <ArtifactFilePanel text={run.outputTree?.join('\n')} />
+                </CollapsibleSection>
+                <CollapsibleSection title="Input (input.json file)" defaultOpen>
+                  <ArtifactFilePanel
+                    text={
+                      run.rawFiles['input.json']
+                        ? `${JSON.stringify(parseJsonObject(run.rawFiles['input.json']), null, 2)}`
+                        : undefined
+                    }
+                  />
+                </CollapsibleSection>
+                <CollapsibleSection title="Cypress parsed report">
+                  <ArtifactFilePanel
+                    text={
+                      run.rawFiles['cypress_parsed.json']
+                        ? `${JSON.stringify(cypressParsed ?? parseJsonObject(run.rawFiles['cypress_parsed.json']), null, 2)}`
+                        : undefined
+                    }
+                  />
+                </CollapsibleSection>
+                <CollapsibleSection title="Quali bot logs" defaultOpen>
                   <ArtifactFilePanel
                     text={
                       run.rawFiles['terminal_output.log'] ?? run.rawFiles['flow_pipeline.log']
@@ -884,6 +910,33 @@ export default function App() {
                 </CollapsibleSection>
                 <CollapsibleSection title="Router logs">
                   <ArtifactFilePanel text={run.rawFiles['router_run.log']} />
+                </CollapsibleSection>
+                <CollapsibleSection title="Coverage HTML report">
+                  {run.coverageReport?.d?.kind === 'coverage_unavailable' ? (
+                    <p className="text-xs text-[var(--app-muted)]">
+                      Coverage HTML was not generated for this run because no LLVM profile
+                      data was produced.
+                    </p>
+                  ) : coverageHtmlUrl ? (
+                    <iframe
+                      title="Coverage HTML report"
+                      src={coverageHtmlUrl}
+                      className="h-[75vh] w-full rounded-xl border border-[var(--app-border)] bg-white"
+                    />
+                  ) : (
+                    <p className="text-xs text-[var(--app-muted)]">
+                      Coverage HTML is not available for this run.
+                    </p>
+                  )}
+                </CollapsibleSection>
+                <CollapsibleSection title="Coverage run report">
+                  <ArtifactFilePanel
+                    text={
+                      run.rawFiles['coverage_run_report.json']
+                        ? `${JSON.stringify(run.coverageReport ?? parseJsonObject(run.rawFiles['coverage_run_report.json']), null, 2)}`
+                        : undefined
+                    }
+                  />
                 </CollapsibleSection>
                 <CollapsibleSection title="Final report">
                   <ArtifactFilePanel

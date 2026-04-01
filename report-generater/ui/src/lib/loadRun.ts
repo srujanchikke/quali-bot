@@ -21,6 +21,7 @@ export function inferArtifactName(filename: string): keyof LoadedRun['rawFiles']
 export function buildRunFromRawFiles(
   id: string,
   rawFiles: Record<string, string>,
+  outputTree?: string[],
 ): LoadedRun {
   let finalReport: FinalReport | undefined
   let pathFlow: PathFlowArtifact | undefined
@@ -66,5 +67,5 @@ export function buildRunFromRawFiles(
     }
   }
 
-  return { id, finalReport, pathFlow, coverageReport, rawFiles }
+  return { id, finalReport, pathFlow, coverageReport, outputTree, rawFiles }
 }
