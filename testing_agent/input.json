@@ -1,63 +1,145 @@
 {
-  "changed_function": "Braintree#ConnectorIntegration<PaymentsVoidData>#build_request",
-  "changed_file": "crates/hyperswitch_connectors/src/connectors/braintree.rs",
-  "changed_line": 500,
-  "endpoint_count": 1,
-  "flow_count": 1,
+  "changed_function": "validate_customer_access",
+  "changed_file": "crates/router/src/core/payments/helpers.rs",
+  "changed_line": 5897,
+  "function": "validate_customer_access",
+  "file": "crates/router/src/core/payments/helpers.rs",
+  "def_line": 5897,
+  "endpoint_count": 2,
+  "flow_count": 2,
   "endpoints": [
     {
       "method": "POST",
-      "path": "/payments/{payment_id}/cancel",
-      "handler": "payments_cancel",
+      "path": "/payments/{payment_id}",
+      "handler": "payments_update",
       "call_chain": [
-        "payments_cancel",
-        "Braintree#ConnectorIntegration<PaymentsVoidData>#build_request"
+        "payments_update",
+        "authorize_verify_select",
+        "payments_core",
+        "payments_operation_core",
+        "PaymentUpdate#GetTracker#get_trackers",
+        "validate_customer_access"
       ],
-      "guards": [],
-      "depth": 2,
+      "guards": [
+        {
+          "at_hop": "authorize_verify_select \u2192 payments_core",
+          "guard_type": "match",
+          "condition": "req.payment_type.unwrap_or_default()"
+        }
+      ],
+      "depth": 5,
       "specialization": {
-        "connector": "Braintree",
-        "trait": "ConnectorIntegration",
+        "connector": "PaymentUpdate",
+        "trait": "GetTracker",
         "trait_args": [
-          "PaymentsVoidData"
+          "F",
+          "PaymentData",
+          "PaymentsRequest"
         ],
-        "method": "build_request",
-        "specialization_key": "ConnectorIntegration|Braintree|PaymentsVoidData|build_request"
+        "method": "get_trackers",
+        "specialization_key": "GetTracker|PaymentUpdate|F,PaymentData,PaymentsRequest|get_trackers"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/payments/{payment_id}/confirm",
+      "handler": "payments_confirm",
+      "call_chain": [
+        "payments_confirm",
+        "authorize_verify_select",
+        "payments_core",
+        "payments_operation_core",
+        "PaymentConfirm#GetTracker#get_trackers",
+        "validate_customer_access"
+      ],
+      "guards": [
+        {
+          "at_hop": "authorize_verify_select \u2192 payments_core",
+          "guard_type": "match",
+          "condition": "req.payment_type.unwrap_or_default()"
+        }
+      ],
+      "depth": 5,
+      "specialization": {
+        "connector": "PaymentConfirm",
+        "trait": "GetTracker",
+        "trait_args": [
+          "F",
+          "PaymentData",
+          "PaymentsRequest"
+        ],
+        "method": "get_trackers",
+        "specialization_key": "GetTracker|PaymentConfirm|F,PaymentData,PaymentsRequest|get_trackers"
       }
     }
   ],
   "flows": [
     {
       "flow_id": 1,
-      "description": "Braintree void payment \u2014 build_request constructs the cancel request to Braintree",
-      "changed_function": "Braintree#ConnectorIntegration<PaymentsVoidData>#build_request",
-      "changed_file": "crates/hyperswitch_connectors/src/connectors/braintree.rs",
-      "changed_line": 500,
+      "description": "req.payment_type.unwrap_or_default()",
+      "changed_function": "validate_customer_access",
+      "changed_file": "crates/router/src/core/payments/helpers.rs",
+      "changed_line": 5897,
       "endpoints": [
         {
           "method": "POST",
-          "path": "/payments/{payment_id}/cancel",
-          "handler": "payments_cancel"
+          "path": "/payments/{payment_id}",
+          "handler": "payments_update"
         }
       ],
       "prerequisites": [
         {
           "kind": "concrete_type",
-          "field": "connector",
-          "required_value": "Braintree",
-          "trait": "ConnectorIntegration",
+          "field": "operation_type",
+          "required_value": "PaymentUpdate",
+          "trait": "GetTracker",
           "trait_args": [
-            "PaymentsVoidData"
+            "F",
+            "PaymentData",
+            "PaymentsRequest"
           ],
+          "reason": "path only entered via GetTracker|PaymentUpdate|F,PaymentData,PaymentsRequest|get_trackers",
           "confidence": "high"
+        },
+        {
+          "kind": "request_field",
+          "field": "payment_type",
+          "required": false,
+          "reason": "req.payment_type.unwrap_or_default()",
+          "confidence": "low"
         }
       ],
       "chain": [
         {
-          "function": "payments_cancel",
+          "function": "payments_update",
           "file": "crates/router/src/routes/payments.rs",
-          "def_line": 100,
+          "def_line": 745,
           "role": "handler",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          },
+          "full_source": "pub async fn payments_update(\n    state: web::Data<app::AppState>,\n"
+        },
+        {
+          "function": "authorize_verify_select",
+          "file": "crates/router/src/routes/payments.rs",
+          "def_line": 2147,
+          "role": "intermediate",
+          "condition": {
+            "type": "match",
+            "text": "req.payment_type.unwrap_or_default()",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "payments_core",
+          "file": "crates/router/src/core/payments.rs",
+          "def_line": 2246,
+          "role": "intermediate",
           "condition": {
             "type": "unconditional",
             "text": "unconditional",
@@ -66,43 +148,520 @@
           }
         },
         {
-          "function": "Braintree#ConnectorIntegration<PaymentsVoidData>#build_request",
-          "file": "crates/hyperswitch_connectors/src/connectors/braintree.rs",
-          "def_line": 500,
+          "function": "payments_operation_core",
+          "file": "crates/router/src/core/payments.rs",
+          "def_line": 598,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "PaymentUpdate#GetTracker#get_trackers",
+          "file": "crates/router/src/core/payments/operations/payment_update.rs",
+          "def_line": 49,
+          "role": "direct_caller",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          },
+          "full_source": "    async fn get_trackers<'a>(\n        &'a self,\n"
+        },
+        {
+          "function": "validate_customer_access",
+          "file": "crates/router/src/core/payments/helpers.rs",
+          "def_line": 5897,
           "role": "target"
         }
       ],
-      "connectors": [],
-      "connector_count": 0,
+      "connectors": [
+        "aci",
+        "adyen",
+        "adyenplatform",
+        "affirm",
+        "airwallex",
+        "amazonpay",
+        "archipel",
+        "authipay",
+        "authorizedotnet",
+        "bambora",
+        "bamboraapac",
+        "bankofamerica",
+        "barclaycard",
+        "billwerk",
+        "bitpay",
+        "blackhawknetwork",
+        "bluesnap",
+        "boku",
+        "braintree",
+        "breadpay",
+        "calida",
+        "cashtocode",
+        "celero",
+        "chargebee",
+        "checkbook",
+        "checkout",
+        "coinbase",
+        "coingate",
+        "cryptopay",
+        "custombilling",
+        "cybersource",
+        "datatrans",
+        "deutschebank",
+        "digitalvirgo",
+        "dlocal",
+        "dwolla",
+        "ebanx",
+        "elavon",
+        "envoy",
+        "facilitapay",
+        "finix",
+        "fiserv",
+        "fiservemea",
+        "fiuu",
+        "flexiti",
+        "forte",
+        "getnet",
+        "gigadat",
+        "globalpay",
+        "globepay",
+        "gocardless",
+        "gpayments",
+        "helcim",
+        "hipay",
+        "hyperswitch_vault",
+        "hyperwallet",
+        "iatapay",
+        "inespay",
+        "itaubank",
+        "jpmorgan",
+        "juspaythreedsserver",
+        "katapult",
+        "klarna",
+        "loonio",
+        "mifinity",
+        "mollie",
+        "moneris",
+        "mpgs",
+        "multisafepay",
+        "nexinets",
+        "nexixpay",
+        "nmi",
+        "nomupay",
+        "noon",
+        "nordea",
+        "novalnet",
+        "nuvei",
+        "opayo",
+        "opennode",
+        "paybox",
+        "payeezy",
+        "payjustnow",
+        "payjustnowinstore",
+        "payload",
+        "payme",
+        "paypal",
+        "paysafe",
+        "paystack",
+        "paytm",
+        "payu",
+        "peachpayments",
+        "phonepe",
+        "placetopay",
+        "powertranz",
+        "prophetpay",
+        "rapyd",
+        "razorpay",
+        "redsys",
+        "santander",
+        "shift4",
+        "sift",
+        "silverflow",
+        "square",
+        "stax",
+        "stripe",
+        "stripebilling",
+        "taxjar",
+        "tesouro",
+        "thunes",
+        "tokenex",
+        "tokenio",
+        "trustpay",
+        "trustpayments",
+        "tsys",
+        "unified_authentication_service",
+        "vgs",
+        "volt",
+        "wellsfargo",
+        "wellsfargopayout",
+        "wise",
+        "worldline",
+        "worldpay",
+        "worldpayvantiv",
+        "worldpayxml",
+        "xendit",
+        "zen",
+        "zift",
+        "zsl"
+      ],
+      "connector_count": 128,
       "specialization": {
-        "connector": "Braintree",
-        "trait": "ConnectorIntegration",
+        "connector": "PaymentUpdate",
+        "trait": "GetTracker",
         "trait_args": [
-          "PaymentsVoidData"
+          "F",
+          "PaymentData",
+          "PaymentsRequest"
         ],
-        "method": "build_request",
-        "specialization_key": "ConnectorIntegration|Braintree|PaymentsVoidData|build_request"
+        "method": "get_trackers",
+        "specialization_key": "GetTracker|PaymentUpdate|F,PaymentData,PaymentsRequest|get_trackers"
       },
-      "conditions_high": 0,
+      "conditions_high": 1,
       "conditions_missing": 0,
       "setup_payloads": [],
       "trigger_payload": {
-        "endpoint": "POST /payments/{payment_id}/cancel",
+        "endpoint": "POST /payments/{payment_id}",
         "body": {
-          "connector": "braintree"
+          "amount": 1000,
+          "currency": "USD",
+          "payment_method": "card",
+          "payment_method_data": {
+            "card": {
+              "number": "4111111111111111",
+              "exp_month": "12",
+              "exp_year": "2030",
+              "cvc": "123"
+            }
+          },
+          "connector": "paymentupdate"
+        }
+      }
+    },
+    {
+      "flow_id": 2,
+      "description": "req.payment_type.unwrap_or_default()",
+      "changed_function": "validate_customer_access",
+      "changed_file": "crates/router/src/core/payments/helpers.rs",
+      "changed_line": 5897,
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/payments/{payment_id}/confirm",
+          "handler": "payments_confirm"
+        }
+      ],
+      "prerequisites": [
+        {
+          "kind": "concrete_type",
+          "field": "operation_type",
+          "required_value": "PaymentConfirm",
+          "trait": "GetTracker",
+          "trait_args": [
+            "F",
+            "PaymentData",
+            "PaymentsRequest"
+          ],
+          "reason": "path only entered via GetTracker|PaymentConfirm|F,PaymentData,PaymentsRequest|get_trackers",
+          "confidence": "high"
+        },
+        {
+          "kind": "request_field",
+          "field": "payment_type",
+          "required": false,
+          "reason": "req.payment_type.unwrap_or_default()",
+          "confidence": "low"
+        }
+      ],
+      "chain": [
+        {
+          "function": "payments_confirm",
+          "file": "crates/router/src/routes/payments.rs",
+          "def_line": 931,
+          "role": "handler",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          },
+          "full_source": "pub async fn payments_confirm(\n    state: web::Data<app::AppState>,\n"
+        },
+        {
+          "function": "authorize_verify_select",
+          "file": "crates/router/src/routes/payments.rs",
+          "def_line": 2147,
+          "role": "intermediate",
+          "condition": {
+            "type": "match",
+            "text": "req.payment_type.unwrap_or_default()",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "payments_core",
+          "file": "crates/router/src/core/payments.rs",
+          "def_line": 2246,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "payments_operation_core",
+          "file": "crates/router/src/core/payments.rs",
+          "def_line": 598,
+          "role": "intermediate",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          }
+        },
+        {
+          "function": "PaymentConfirm#GetTracker#get_trackers",
+          "file": "crates/router/src/core/payments/operations/payment_confirm.rs",
+          "def_line": 73,
+          "role": "direct_caller",
+          "condition": {
+            "type": "unconditional",
+            "text": "unconditional",
+            "condition_line": null,
+            "confidence": "high"
+          },
+          "full_source": "    async fn get_trackers<'a>(\n        &'a self,\n"
+        },
+        {
+          "function": "validate_customer_access",
+          "file": "crates/router/src/core/payments/helpers.rs",
+          "def_line": 5897,
+          "role": "target"
+        }
+      ],
+      "connectors": [
+        "aci",
+        "adyen",
+        "adyenplatform",
+        "affirm",
+        "airwallex",
+        "amazonpay",
+        "archipel",
+        "authipay",
+        "authorizedotnet",
+        "bambora",
+        "bamboraapac",
+        "bankofamerica",
+        "barclaycard",
+        "billwerk",
+        "bitpay",
+        "blackhawknetwork",
+        "bluesnap",
+        "boku",
+        "braintree",
+        "breadpay",
+        "calida",
+        "cashtocode",
+        "celero",
+        "chargebee",
+        "checkbook",
+        "checkout",
+        "coinbase",
+        "coingate",
+        "cryptopay",
+        "custombilling",
+        "cybersource",
+        "datatrans",
+        "deutschebank",
+        "digitalvirgo",
+        "dlocal",
+        "dwolla",
+        "ebanx",
+        "elavon",
+        "envoy",
+        "facilitapay",
+        "finix",
+        "fiserv",
+        "fiservemea",
+        "fiuu",
+        "flexiti",
+        "forte",
+        "getnet",
+        "gigadat",
+        "globalpay",
+        "globepay",
+        "gocardless",
+        "gpayments",
+        "helcim",
+        "hipay",
+        "hyperswitch_vault",
+        "hyperwallet",
+        "iatapay",
+        "inespay",
+        "itaubank",
+        "jpmorgan",
+        "juspaythreedsserver",
+        "katapult",
+        "klarna",
+        "loonio",
+        "mifinity",
+        "mollie",
+        "moneris",
+        "mpgs",
+        "multisafepay",
+        "nexinets",
+        "nexixpay",
+        "nmi",
+        "nomupay",
+        "noon",
+        "nordea",
+        "novalnet",
+        "nuvei",
+        "opayo",
+        "opennode",
+        "paybox",
+        "payeezy",
+        "payjustnow",
+        "payjustnowinstore",
+        "payload",
+        "payme",
+        "paypal",
+        "paysafe",
+        "paystack",
+        "paytm",
+        "payu",
+        "peachpayments",
+        "phonepe",
+        "placetopay",
+        "powertranz",
+        "prophetpay",
+        "rapyd",
+        "razorpay",
+        "redsys",
+        "santander",
+        "shift4",
+        "sift",
+        "silverflow",
+        "square",
+        "stax",
+        "stripe",
+        "stripebilling",
+        "taxjar",
+        "tesouro",
+        "thunes",
+        "tokenex",
+        "tokenio",
+        "trustpay",
+        "trustpayments",
+        "tsys",
+        "unified_authentication_service",
+        "vgs",
+        "volt",
+        "wellsfargo",
+        "wellsfargopayout",
+        "wise",
+        "worldline",
+        "worldpay",
+        "worldpayvantiv",
+        "worldpayxml",
+        "xendit",
+        "zen",
+        "zift",
+        "zsl"
+      ],
+      "connector_count": 128,
+      "specialization": {
+        "connector": "PaymentConfirm",
+        "trait": "GetTracker",
+        "trait_args": [
+          "F",
+          "PaymentData",
+          "PaymentsRequest"
+        ],
+        "method": "get_trackers",
+        "specialization_key": "GetTracker|PaymentConfirm|F,PaymentData,PaymentsRequest|get_trackers"
+      },
+      "conditions_high": 1,
+      "conditions_missing": 0,
+      "setup_payloads": [],
+      "trigger_payload": {
+        "endpoint": "POST /payments/{payment_id}/confirm",
+        "body": {
+          "amount": 1000,
+          "currency": "USD",
+          "payment_method": "card",
+          "payment_method_data": {
+            "card": {
+              "number": "4111111111111111",
+              "exp_month": "12",
+              "exp_year": "2030",
+              "cvc": "123"
+            }
+          },
+          "connector": "paymentconfirm"
         }
       }
     }
   ],
   "reachability_matrix": [
     {
-      "modified_function": "Braintree#ConnectorIntegration<PaymentsVoidData>#build_request",
-      "file": "crates/hyperswitch_connectors/src/connectors/braintree.rs",
-      "line": 500,
-      "endpoint": "POST /payments/{payment_id}/cancel",
-      "handler": "payments_cancel",
-      "impact_status": "Impacted",
-      "guard_conditions": [],
+      "modified_function": "validate_customer_access",
+      "file": "crates/router/src/core/payments/helpers.rs",
+      "line": 5897,
+      "endpoint": "POST /payments/{payment_id}",
+      "handler": "payments_update",
+      "call_chain": [
+        "payments_update",
+        "authorize_verify_select",
+        "payments_core",
+        "payments_operation_core",
+        "PaymentUpdate#GetTracker#get_trackers",
+        "validate_customer_access"
+      ],
+      "guard_conditions": [
+        {
+          "function": "authorize_verify_select",
+          "type": "match",
+          "condition": "req.payment_type.unwrap_or_default()",
+          "confidence": "high"
+        }
+      ],
+      "impact_status": "Conditionally Impacted (via PaymentUpdate)",
+      "specialization_key": "GetTracker|PaymentUpdate|F,PaymentData,PaymentsRequest|get_trackers",
+      "likely_infeasible": false
+    },
+    {
+      "modified_function": "validate_customer_access",
+      "file": "crates/router/src/core/payments/helpers.rs",
+      "line": 5897,
+      "endpoint": "POST /payments/{payment_id}/confirm",
+      "handler": "payments_confirm",
+      "call_chain": [
+        "payments_confirm",
+        "authorize_verify_select",
+        "payments_core",
+        "payments_operation_core",
+        "PaymentConfirm#GetTracker#get_trackers",
+        "validate_customer_access"
+      ],
+      "guard_conditions": [
+        {
+          "function": "authorize_verify_select",
+          "type": "match",
+          "condition": "req.payment_type.unwrap_or_default()",
+          "confidence": "high"
+        }
+      ],
+      "impact_status": "Conditionally Impacted (via PaymentConfirm)",
+      "specialization_key": "GetTracker|PaymentConfirm|F,PaymentData,PaymentsRequest|get_trackers",
       "likely_infeasible": false
     }
   ],

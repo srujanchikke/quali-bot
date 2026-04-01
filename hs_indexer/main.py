@@ -60,6 +60,7 @@ def cmd_index(args: argparse.Namespace) -> None:
 
 def cmd_query(args: argparse.Namespace) -> None:
     from hs_indexer.find_impact import find_impact
+    from hs_indexer.enrich_flows import enrich_flow, _DEFAULT_MODELS
 
     src_root = args.src_root or os.environ.get("SRC_ROOT", "")
     if not src_root:
@@ -72,7 +73,8 @@ def cmd_query(args: argparse.Namespace) -> None:
 
     os.environ["SRC_ROOT"] = src_root
 
-    find_impact(
+    # Step 1: BFS impact analysis — always writes raw JSON to --out
+    result = find_impact(
         args.function,
         src_root,
         max_depth=args.depth,
@@ -80,6 +82,54 @@ def cmd_query(args: argparse.Namespace) -> None:
         file_hint=args.file_hint,
         line_hint=args.line_hint,
     )
+
+    # Step 2: LLM enrichment — runs by default on every query.
+    # Detects the backend from available API keys; skips gracefully if none found.
+    if not result or not result.get("flows"):
+        return
+
+    backend = args.backend
+    if backend == "auto":
+        if os.environ.get("ANTHROPIC_API_KEY"):
+            backend = "anthropic"
+        elif os.environ.get("GROQ_API_KEY"):
+            backend = "groq"
+        elif os.environ.get("GEMINI_API_KEY"):
+            backend = "gemini"
+        else:
+            print(
+                "\n  [enrich] No API key found (ANTHROPIC_API_KEY / GROQ_API_KEY / GEMINI_API_KEY)."
+                " Skipping LLM enrichment. Set a key or pass --backend ollama to enrich.",
+                file=sys.stderr,
+            )
+            return
+
+    model = _DEFAULT_MODELS[backend]
+    flows = result.get("flows", [])
+    fn_name = result.get("function", "?")
+    print(f"\n[enrich] Backend: {backend} ({model}) — enriching {len(flows)} flow(s) for {fn_name} …",
+          file=sys.stderr)
+
+    enriched_flows = []
+    for fl in flows:
+        flow_id = fl.get("flow_id", "?")
+        desc    = fl.get("description", "")[:80]
+        print(f"  [flow {flow_id}] {desc} … ", file=sys.stderr, end="", flush=True)
+        try:
+            spec = enrich_flow(result, fl, backend, model)
+            print("✓", file=sys.stderr)
+        except Exception as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            spec = {"error": str(exc)}
+        enriched_flows.append({**fl, "llm_spec": spec})
+
+    enriched = {**{k: v for k, v in result.items() if k != "flows"}, "flows": enriched_flows}
+
+    out_path = args.out or (f"{fn_name}_enriched.json" if fn_name != "?" else "impact_enriched.json")
+    with open(out_path, "w") as f:
+        import json
+        json.dump(enriched, f, indent=2)
+    print(f"\n[enrich] Written to: {out_path}", file=sys.stderr)
 
 
 def main() -> None:
@@ -146,7 +196,17 @@ def main() -> None:
     p_query.add_argument(
         "--out",
         metavar="FILE",
-        help="Write JSON result to this file.",
+        help="Write JSON result to this file (also used as the enriched output path).",
+    )
+    p_query.add_argument(
+        "--backend",
+        default="auto",
+        choices=["auto", "anthropic", "groq", "gemini", "ollama"],
+        help=(
+            "LLM backend for enrichment (default: auto — picks from available API keys). "
+            "Set ANTHROPIC_API_KEY / GROQ_API_KEY / GEMINI_API_KEY, or use --backend ollama "
+            "for a local model."
+        ),
     )
 
     args = ap.parse_args()
