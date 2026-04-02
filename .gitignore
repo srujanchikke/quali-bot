@@ -75,6 +75,8 @@ bin/
 
 # Large local dependency/output folders
 testing_agent/scip/
+testing_agent/input.json
+testing_agent/input_raw.json
 
 # Rust (for scip bindings)
 target/
