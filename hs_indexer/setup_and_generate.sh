@@ -180,13 +180,21 @@ QUERY_ARGS=()
 [[ -n "${FILE}" ]]          && QUERY_ARGS+=(--file "${FILE}")
 [[ -n "${LINE}" ]]          && QUERY_ARGS+=(--line "${LINE}")
 
-# ── API key check for LLM enrichment ─────────────────────────────────────────
+# ── Resolve LLM backend ───────────────────────────────────────────────────────
 sep "Checking LLM API keys for flow enrichment"
 HAS_KEY=0
-[[ -n "${ANTHROPIC_API_KEY:-}" ]] && { echo "  ANTHROPIC_API_KEY : set"; HAS_KEY=1; }
-[[ -n "${GROQ_API_KEY:-}"      ]] && { echo "  GROQ_API_KEY      : set"; HAS_KEY=1; }
-[[ -n "${GEMINI_API_KEY:-}"    ]] && { echo "  GEMINI_API_KEY    : set"; HAS_KEY=1; }
-[[ -n "${JUSPAY_API_KEY:-}"    ]] && { echo "  JUSPAY_API_KEY    : set (Grid / open-large)"; HAS_KEY=1; }
+RESOLVED_BACKEND="${BACKEND}"
+
+if [[ "${BACKEND}" == "auto" ]]; then
+  if   [[ -n "${JUSPAY_API_KEY:-}"    ]]; then RESOLVED_BACKEND="grid";     HAS_KEY=1; echo "  JUSPAY_API_KEY    : set → backend=grid"
+  elif [[ -n "${ANTHROPIC_API_KEY:-}" ]]; then RESOLVED_BACKEND="anthropic"; HAS_KEY=1; echo "  ANTHROPIC_API_KEY : set → backend=anthropic"
+  elif [[ -n "${GROQ_API_KEY:-}"      ]]; then RESOLVED_BACKEND="groq";      HAS_KEY=1; echo "  GROQ_API_KEY      : set → backend=groq"
+  elif [[ -n "${GEMINI_API_KEY:-}"    ]]; then RESOLVED_BACKEND="gemini";    HAS_KEY=1; echo "  GEMINI_API_KEY    : set → backend=gemini"
+  fi
+else
+  HAS_KEY=1
+  echo "  Backend explicitly set: ${BACKEND}"
+fi
 
 if [[ "${HAS_KEY}" == "0" ]]; then
   echo ""
@@ -198,18 +206,21 @@ if [[ "${HAS_KEY}" == "0" ]]; then
   echo "    export GROQ_API_KEY=gsk_..."
   echo "    export GEMINI_API_KEY=AIza..."
   echo ""
-  echo "  Or pass --backend ollama to use a local model (no key needed)."
+  echo "  Or pass BACKEND=ollama to use a local model (no key needed)."
   echo "  Continuing without enrichment..."
 fi
 
-sep "Querying impact"
 RAW_JSON="${OUT_JSON%.json}_raw.json"
+FILTERED_JSON="${OUT_JSON%.json}_filtered_tmp.json"
+
+# ── Step 1: BFS only (no enrichment) ─────────────────────────────────────────
+sep "Step 1/3: BFS impact analysis (no enrichment)"
 (cd "${PROJECT_ROOT}" && python3 -m hs_indexer \
   --src-root "${HYPERSWITCH_ROOT}" \
   query \
   "${QUERY_ARGS[@]}" \
   --depth "${DEPTH}" \
-  --backend "${BACKEND}" \
+  --no-enrich \
   --out "${RAW_JSON}")
 
 if [[ ! -f "${RAW_JSON}" ]]; then
@@ -217,26 +228,45 @@ if [[ ! -f "${RAW_JSON}" ]]; then
   exit 1
 fi
 
-# ── False-positive filter (Grid / open-large) ─────────────────────────────────
+# ── Step 2: False-positive filter ─────────────────────────────────────────────
+sep "Step 2/3: Filtering false positives (endpoints + flows)"
 if [[ -n "${JUSPAY_API_KEY:-}" ]]; then
-  sep "Filtering false positives via Grid API (open-large)"
+  echo "  Using Grid API (claude-sonnet-4-6) to classify endpoints …"
   (cd "${PROJECT_ROOT}" && python3 -m hs_indexer.filter_false_positives \
-    --input  "${RAW_JSON}" \
+    --input    "${RAW_JSON}" \
     --src-root "${HYPERSWITCH_ROOT}" \
-    --out    "${OUT_JSON}")
-  if [[ ! -f "${OUT_JSON}" ]]; then
-    echo "  WARNING: filter step produced no output — falling back to raw" >&2
-    cp "${RAW_JSON}" "${OUT_JSON}"
+    --out      "${FILTERED_JSON}")
+  if [[ ! -f "${FILTERED_JSON}" ]]; then
+    echo "  WARNING: filter step produced no output — using raw" >&2
+    cp "${RAW_JSON}" "${FILTERED_JSON}"
   fi
 else
   echo "  JUSPAY_API_KEY not set — skipping false-positive filter, using raw output"
-  cp "${RAW_JSON}" "${OUT_JSON}"
+  cp "${RAW_JSON}" "${FILTERED_JSON}"
 fi
+
+# ── Step 3: LLM enrichment of surviving flows only ────────────────────────────
+sep "Step 3/3: LLM enrichment of surviving flows"
+if [[ "${HAS_KEY}" == "1" ]]; then
+  (cd "${PROJECT_ROOT}" && python3 -m hs_indexer.enrich_flows \
+    --input   "${FILTERED_JSON}" \
+    --backend "${RESOLVED_BACKEND}" \
+    --out     "${OUT_JSON}") || true
+fi
+
+# If enrichment didn't produce output (no key, or error), use filtered as final
+if [[ ! -f "${OUT_JSON}" ]]; then
+  echo "  WARNING: enrichment produced no output — using filtered result as final" >&2
+  cp "${FILTERED_JSON}" "${OUT_JSON}"
+fi
+
+# Clean up temp filtered file
+rm -f "${FILTERED_JSON}"
 
 echo ""
 echo "============================================================"
-echo "  Impact JSON written to: ${OUT_JSON}"
-echo "  Raw (unfiltered) JSON : ${RAW_JSON}"
+echo "  Final output (enriched) : ${OUT_JSON}"
+echo "  Raw BFS (unfiltered)    : ${RAW_JSON}"
 echo ""
 echo "  Run the full coverage report next:"
 echo "    bash report-generater/run_flow_coverage_report.sh"

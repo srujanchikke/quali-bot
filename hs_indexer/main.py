@@ -83,8 +83,11 @@ def cmd_query(args: argparse.Namespace) -> None:
         line_hint=args.line_hint,
     )
 
-    # Step 2: LLM enrichment — runs by default on every query.
-    # Detects the backend from available API keys; skips gracefully if none found.
+    # Step 2: LLM enrichment — skipped when --no-enrich is set.
+    if getattr(args, "no_enrich", False):
+        print(f"\n[query] --no-enrich set — skipping LLM enrichment.", file=sys.stderr)
+        return
+
     if not result or not result.get("flows"):
         return
 
@@ -199,6 +202,12 @@ def main() -> None:
         "--out",
         metavar="FILE",
         help="Write JSON result to this file (also used as the enriched output path).",
+    )
+    p_query.add_argument(
+        "--no-enrich",
+        action="store_true",
+        default=False,
+        help="Skip LLM enrichment — write raw BFS JSON only (useful before running filter_false_positives).",
     )
     p_query.add_argument(
         "--backend",

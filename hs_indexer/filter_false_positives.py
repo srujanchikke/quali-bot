@@ -386,7 +386,22 @@ def main() -> None:
 
     if wrapper is not None:
         key = "endpoints" if "endpoints" in wrapper else "matrix"
-        output = {**wrapper, key: filtered}
+        # Build set of surviving (method, path) pairs to prune flows too
+        surviving = {(ep.get("method"), ep.get("path", ep.get("endpoint")))
+                     for ep in filtered}
+        # Prune flows: keep only flows that have ≥1 surviving endpoint
+        pruned_flows = []
+        for fl in wrapper.get("flows", []):
+            kept_eps = [e for e in fl.get("endpoints", [])
+                        if (e.get("method"), e.get("path", e.get("endpoint"))) in surviving]
+            if kept_eps:
+                pruned_flows.append({**fl, "endpoints": kept_eps})
+        n_flows_dropped = len(wrapper.get("flows", [])) - len(pruned_flows)
+        if n_flows_dropped:
+            print(f"  [filter] Dropped {n_flows_dropped} flow(s) with no surviving endpoints",
+                  file=sys.stderr)
+        output = {**wrapper, key: filtered, "flows": pruned_flows,
+                  "endpoint_count": len(filtered), "flow_count": len(pruned_flows)}
     else:
         output = filtered
 
