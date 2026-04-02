@@ -1018,6 +1018,70 @@ def print_summary(driver):
         print(f"    {r['trait']:40s} {r['cnt']:4d} impls", file=sys.stderr)
 
 
+# ── Cross-connector helper edge repair ────────────────────────────────────────
+
+def repair_connector_helper_edges(driver) -> None:
+    """
+    Fix SCIP symbol resolution bugs where `self.get_headers()` (or similar
+    ConnectorIntegration helper methods) inside a concrete
+    `Struct#ConnectorIntegration<Op,...>#method` is incorrectly resolved to a
+    same-named function from a *different* connector's file.
+
+    Strategy:
+      For every `Struct#ConnectorIntegration<Op,...>#build_request` node that has
+      a CALLS edge to a `get_headers` (or `get_content_type`) node whose file does
+      NOT belong to `Struct`'s connector directory, add a corrected CALLS edge to
+      `Struct#ConnectorIntegration#get_headers` (the qualified impl for that struct)
+      and also link through ConnectorCommon#get_auth_header if it exists.
+    """
+    with driver.session() as session:
+        # Find concrete build_request nodes whose get_headers target is in the wrong file
+        wrong_edges = session.run("""
+            MATCH (br:Fn)-[:CALLS]->(gh:Fn)
+            WHERE br.name =~ '.*#ConnectorIntegration<.*>#build_request'
+              AND gh.name IN ['get_headers', 'get_content_type']
+            WITH br, gh,
+                 split(br.name, '#')[0] AS struct_name,
+                 gh.file AS wrong_file
+            WHERE NOT (wrong_file IS NULL OR wrong_file CONTAINS toLower(split(br.name, '#')[0]))
+            RETURN br.name AS br_name, struct_name, wrong_file
+        """).data()
+
+        fixed = 0
+        for row in wrong_edges:
+            struct_name = row["struct_name"]
+            br_name     = row["br_name"]
+            # Look for the correct qualified get_headers node for this struct
+            correct = session.run("""
+                MATCH (gh:Fn)
+                WHERE gh.name = $target
+                RETURN gh.name AS name LIMIT 1
+            """, target=f"{struct_name}#ConnectorIntegration#get_headers").data()
+
+            if correct:
+                session.run("""
+                    MATCH (br:Fn {name: $br}), (gh:Fn {name: $gh})
+                    MERGE (br)-[:CALLS]->(gh)
+                """, br=br_name, gh=correct[0]["name"])
+                fixed += 1
+
+        print(f"  repaired {fixed} cross-connector helper CALLS edge(s)", file=sys.stderr)
+
+        # Ensure all Struct#ConnectorIntegration#get_headers also have a CALLS
+        # edge to their ConnectorCommon#get_auth_header (same struct).
+        auth_fixed = session.run("""
+            MATCH (gh:Fn)
+            WHERE gh.name =~ '.*#ConnectorIntegration#get_headers'
+            WITH gh, split(gh.name, '#')[0] AS struct_name
+            MATCH (ah:Fn)
+            WHERE ah.name = struct_name + '#ConnectorCommon#get_auth_header'
+            MERGE (gh)-[:CALLS]->(ah)
+            RETURN count(*) AS n
+        """).single()
+        n = auth_fixed["n"] if auth_fixed else 0
+        print(f"  ensured {n} get_headers → get_auth_header edge(s)", file=sys.stderr)
+
+
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 def main(src_root: str | None = None) -> None:
@@ -1043,6 +1107,9 @@ def main(src_root: str | None = None) -> None:
     print("[5/5] Synthesizing CALLS edges for async_trait impl bodies …", file=sys.stderr)
     synthetic_edges = collect_async_trait_call_edges(impl_records, root)
     write_synthetic_calls(synthetic_edges, driver)
+
+    print("[6/6] Repairing cross-connector helper call edges (get_headers etc.) …", file=sys.stderr)
+    repair_connector_helper_edges(driver)
 
     print_summary(driver)
     driver.close()

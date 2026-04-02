@@ -194,7 +194,7 @@ def main() -> None:
     p_query.add_argument(
         "--depth",
         type=int,
-        default=8,
+        default=12,
         metavar="N",
         help="Max BFS depth (default: 8).",
     )

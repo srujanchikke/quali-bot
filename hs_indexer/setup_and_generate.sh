@@ -44,7 +44,7 @@ HYPERSWITCH_ROOT="${HYPERSWITCH_ROOT:-${HOME}/hyperswitch}"
 SCIP_FILE="${SCIP_FILE:-${HYPERSWITCH_ROOT}/index.scip}"
 OUT_JSON="${OUT_JSON:-${PROJECT_ROOT}/testing_agent/input.json}"
 SKIP_SCIP="${SKIP_SCIP:-0}"
-DEPTH="${DEPTH:-8}"
+DEPTH="${DEPTH:-12}"
 BACKEND="${BACKEND:-auto}"
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

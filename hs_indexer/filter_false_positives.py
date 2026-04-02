@@ -36,8 +36,11 @@ from pathlib import Path
 
 GRID_BASE_URL  = "https://grid.ai.juspay.net"
 GRID_MODEL     = "claude-sonnet-4-6"   # strong reasoning model via Grid
-MAX_SOURCE_LINES = 70   # lines to read around a function definition
-MAX_CHAIN_NODES  = 4    # how many chain nodes to include source for
+MAX_SOURCE_LINES   = 70   # lines to read around a function definition
+MAX_CHAIN_NODES    = 4    # how many chain nodes to include source for
+MAX_HANDLER_LINES  = 40   # lines to read for each handler (shorter than full source)
+MAX_HANDLERS       = 8    # max unique handlers to include in prompt
+BATCH_SIZE         = 15   # endpoints per API call to keep response size manageable
 
 
 # ── Source helpers ──────────────────────────────────────────────────────────────
@@ -112,29 +115,31 @@ def get_source_for_node(node_name: str, src_root: Path,
 
 def get_extra_context(caller_sources: list[tuple[str, str]], src_root: Path) -> str:
     """
-    For each caller whose source mentions a function call that produces a key
-    guarded value (e.g. perform_debit_routing), also include THAT function's source.
-    This lets the model see the full data-flow, not just the guard check.
+    For each caller, find function calls that look like boolean guards or
+    Option-returning helpers and pull in their source so the model can see
+    the full data-flow, not just the guard check site.
     """
-    # Functions worth pulling in if they appear in a caller's body
-    WORTH_EXPANDING = [
-        "perform_debit_routing",
-        "should_perform_debit_routing_for_the_flow",
-        "should_execute_debit_routing",
-        "should_call_connector",
-        "should_add_task_to_process_tracker",
-    ]
+    # Match patterns like `should_*`, `is_*`, `has_*`, `can_*`, `perform_*`
+    # that typically gate whether the changed function is actually called.
+    guard_fn_re = re.compile(
+        r'\b(should_\w+|is_\w+|has_\w+|can_\w+|perform_\w+|check_\w+|get_\w+_for_\w+)\b'
+    )
     extra: list[str] = []
     seen: set[str] = set()
     for _, src in caller_sources:
-        for fn in WORTH_EXPANDING:
-            if fn in src and fn not in seen:
-                seen.add(fn)
-                found = _grep_fn(fn, src_root)
-                if found:
-                    fpath, fline = found
-                    snippet = _read_lines(fpath, fline, MAX_SOURCE_LINES)
-                    extra.append(f"// {fpath.name}:{fline}  [{fn}]\n{snippet}")
+        for fn in guard_fn_re.findall(src):
+            if fn in seen:
+                continue
+            seen.add(fn)
+            found = _grep_fn(fn, src_root)
+            if found:
+                fpath, fline = found
+                snippet = _read_lines(fpath, fline, MAX_SOURCE_LINES)
+                extra.append(f"// {fpath.name}:{fline}  [{fn}]\n{snippet}")
+            if len(extra) >= 4:   # cap to avoid huge prompts
+                break
+        if len(extra) >= 4:
+            break
     return "\n\n".join(extra)
 
 
@@ -189,25 +194,46 @@ def build_prompt(changed_fn_name: str,
                  target_source: str,
                  caller_sources: list[tuple[str, str]],
                  endpoints: list[dict],
-                 extra_context: str = "") -> str:
+                 extra_context: str = "",
+                 fn_file: str = "",
+                 fn_line: int = 0,
+                 handler_sources: dict | None = None) -> str:
 
     callers_block = ""
     for cname, csrc in caller_sources:
         callers_block += f"\n### Caller: {cname}\n```rust\n{csrc}\n```\n"
 
     if extra_context:
-        callers_block += f"\n### Key upstream functions (produce the guarded values)\n```rust\n{extra_context}\n```\n"
+        callers_block += f"\n### Guard / helper functions referenced in callers\n```rust\n{extra_context}\n```\n"
+
+    handlers_block = ""
+    if handler_sources:
+        for hname, hsrc in handler_sources.items():
+            handlers_block += f"\n### Handler: `{hname}`\n```rust\n{hsrc}\n```\n"
 
     ep_lines = []
     for i, ep in enumerate(endpoints):
-        method = ep.get("method", "?")
-        path   = ep.get("endpoint", ep.get("path", "?"))
-        sk     = (ep.get("specialization_key")
-                  or (ep.get("specialization") or {}).get("specialization_key", ""))
-        chain  = " → ".join(str(n) for n in ep.get("call_chain", []))
-        ep_lines.append(f'{i}. [{method} {path}] spec={sk!r}\n   chain: {chain}')
+        method  = ep.get("method", "?")
+        path    = ep.get("endpoint", ep.get("path", "?"))
+        sk      = (ep.get("specialization_key")
+                   or (ep.get("specialization") or {}).get("specialization_key", ""))
+        chain   = ep.get("call_chain", [])
+        handler = chain[0] if chain else "?"
+        chain_str = " → ".join(str(n) for n in chain)
+        ep_lines.append(
+            f'{i}. [{method} {path}]  handler={handler!r}  spec={sk!r}\n'
+            f'   chain: {chain_str}'
+        )
 
     endpoints_block = "\n".join(ep_lines)
+
+    handlers_section = (
+        f"\n## API handler source code\n"
+        f"Each handler below is the ENTRY POINT for one or more endpoints above.\n"
+        f"Read each handler to understand what payment operation type it creates\n"
+        f"and what data it populates — this determines whether guards are satisfied.\n"
+        f"{handlers_block}"
+    ) if handlers_block else ""
 
     return textwrap.dedent(f"""\
         You are a Rust static-analysis expert reviewing call graph reachability.
@@ -215,45 +241,40 @@ def build_prompt(changed_fn_name: str,
         A BFS call graph analyzer found that the following function is structurally
         reachable from several API endpoints. Your job is to determine which endpoints
         can ACTUALLY trigger this function at runtime, and which are false positives
-        caused by guard conditions, data-flow gates, or operation-type mismatches
-        that the BFS cannot see.
+        caused by guard conditions, data-flow gates, feature flags, or type mismatches
+        that the static BFS cannot see.
 
         ## Changed function: `{changed_fn_name}`
+        Location: `{fn_file}` line {fn_line}
+        (Ignore any other function with the same name in the codebase — only this one changed.)
         ```rust
         {target_source}
         ```
 
-        ## Callers (source context)
+        ## Call chain callers (bottom-up from changed function)
         {callers_block}
+        {handlers_section}
 
         ## Endpoints to classify ({len(endpoints)} total)
+        Each line shows: index. [METHOD path] handler='entry handler' spec='flow type'
+        followed by the full call chain from handler down to the changed function.
         {endpoints_block}
 
-        ## CRITICAL: spec key vs Rust operation name
-        The `spec=` field in each endpoint is the PAYMENT ROUTING FLOW TYPE (e.g.
-        "Authorize", "Capture", "PSync"). This is NOT the same as the Rust operation
-        struct name used in guards like `should_perform_debit_routing_for_the_flow`.
+        ## How to classify
+        For each endpoint:
+        1. Identify its HANDLER (entry point shown in the chain).
+        2. Read that handler's source above to understand what operation/data it creates.
+        3. Trace the call chain through the CALLER sources above, looking for guards:
+           - `if let Some(x) = field` where `field` is None for this operation type
+           - `match format!("{{op:?}}") {{ "X" => ..., _ => false }}` gating on op name
+           - Feature flag always disabled for this flow
+           - Wrong connector / trait dispatch type for this endpoint
+        4. If a guard DEFINITIVELY prevents this endpoint from reaching the changed
+           function → FALSE_POSITIVE. Otherwise → TRUE_POSITIVE.
 
-        To determine the Rust operation name, look at the HANDLER function:
-        - `payments_confirm`   handler → creates `PaymentConfirm` operation  ← matches "PaymentConfirm"
-        - `payments_capture`   handler → creates `PaymentCapture` operation
-        - `payments_retrieve`  handler → creates `PaymentStatus` operation
-        - `payments_cancel`    handler → creates `PaymentCancel` operation
-        - Any redirect/3DS handler  → creates `CompleteAuthorize` or `PaymentSync`
-
-        So `spec=Authorize` on the `payments_confirm` handler means the Rust operation
-        IS `PaymentConfirm`, which DOES satisfy `should_perform_debit_routing_for_the_flow`.
-
-        ## Instructions
-        For each endpoint (by its 0-based index above):
-        - Identify the HANDLER function (first node in the chain)
-        - Map it to its Rust operation name using the table above
-        - Check whether that operation satisfies the guard conditions in the callers
-        - Common patterns to detect:
-            * `Option` parameter always `None` for this op type
-            * `match format!("{{operation:?}}").as_str() {{ "X" => ..., _ => false }}` gating the call
-            * Re-entrant call from a post-task/FRM hook using a different op type
-            * Feature flag / config flag always false for this flow
+        Apply the same guard logic consistently across all endpoints. If a guard
+        eliminates N endpoints but allows 1, you must return N FALSE_POSITIVEs and
+        1 TRUE_POSITIVE — do not collapse everything to the same verdict.
 
         YOUR RESPONSE MUST BE VALID JSON ONLY. Start your response with `{{` and end
         with `}}`. Do not include any explanation, analysis, preamble, or markdown.
@@ -277,14 +298,25 @@ def build_prompt(changed_fn_name: str,
 
 # ── Main filtering logic ────────────────────────────────────────────────────────
 
-def filter_endpoints(raw: list[dict], src_root: Path) -> list[dict]:
+def filter_endpoints(raw: list[dict], src_root: Path,
+                     wrapper: dict | None = None) -> list[dict]:
     if not raw:
         return raw
+
+    # Top-level fallback location (BFS stores function info at wrapper level,
+    # not per-endpoint when there is only one changed function)
+    top_fn_name = (wrapper or {}).get("function", "")
+    top_fn_file = (wrapper or {}).get("file", "") or (wrapper or {}).get("changed_file", "")
+    top_fn_line = (wrapper or {}).get("def_line", 0) or (wrapper or {}).get("changed_line", 0)
 
     # Group by changed function (file + line identify it uniquely)
     groups: dict[tuple, list[int]] = {}
     for i, ep in enumerate(raw):
-        key = (ep.get("file", ""), ep.get("line", 0), ep.get("modified_function", ""))
+        key = (
+            ep.get("file", "") or top_fn_file,
+            ep.get("line", 0) or top_fn_line,
+            ep.get("modified_function", "") or top_fn_name,
+        )
         groups.setdefault(key, []).append(i)
 
     results: dict[int, tuple[str, str]] = {}  # index → (verdict, reason)
@@ -310,24 +342,48 @@ def filter_endpoints(raw: list[dict], src_root: Path) -> list[dict]:
             caller_sources.append((node, src))
 
         extra_ctx = get_extra_context(caller_sources, src_root)
-        group_eps = [raw[i] for i in indices]
-        prompt = build_prompt(fn_name, target_source, caller_sources, group_eps, extra_ctx)
 
-        try:
-            raw_resp = _call_grid(prompt)
-            parsed   = json.loads(raw_resp)
-            for item in parsed.get("results", []):
-                idx     = item.get("index")
-                verdict = item.get("verdict", "TRUE_POSITIVE")
-                reason  = item.get("reason", "")
-                if idx is not None and 0 <= idx < len(indices):
-                    results[indices[idx]] = (verdict, reason)
-        except Exception as exc:
-            print(f"  [filter] ERROR: Grid API call failed — keeping all endpoints.",
-                  file=sys.stderr)
-            print(f"  [filter] Reason: {exc}", file=sys.stderr)
-            for i in indices:
-                results[i] = ("TRUE_POSITIVE", f"filter skipped ({exc})")
+        # Collect source for each unique handler (capped to avoid prompt bloat)
+        handler_sources: dict[str, str] = {}
+        group_eps = [raw[i] for i in indices]
+        for ep in group_eps:
+            if len(handler_sources) >= 8:   # cap: 8 unique handlers max
+                break
+            chain = ep.get("call_chain", [])
+            handler = chain[0] if chain else None
+            if handler and handler not in handler_sources:
+                parts = handler.split("#")
+                h_fn  = parts[-1]
+                found = _grep_fn(h_fn, src_root)
+                if found:
+                    fpath, fline = found
+                    snippet = _read_lines(fpath, fline, 40)   # 40 lines, not 70
+                    handler_sources[handler] = f"// {fpath.name}:{fline}\n{snippet}"
+                else:
+                    handler_sources[handler] = get_source_for_node(handler, src_root)
+
+        # Batch into groups of 15 so each API response stays well within limits
+        BATCH = 15
+        for b_start in range(0, len(group_eps), BATCH):
+            batch     = group_eps[b_start: b_start + BATCH]
+            b_indices = indices[b_start: b_start + BATCH]
+            prompt    = build_prompt(fn_name, target_source, caller_sources, batch, extra_ctx,
+                                     fn_file=fn_file, fn_line=fn_line,
+                                     handler_sources=handler_sources)
+            try:
+                raw_resp = _call_grid(prompt)
+                parsed   = json.loads(raw_resp)
+                for item in parsed.get("results", []):
+                    idx     = item.get("index")
+                    verdict = item.get("verdict", "TRUE_POSITIVE")
+                    reason  = item.get("reason", "")
+                    if idx is not None and 0 <= idx < len(batch):
+                        results[b_indices[idx]] = (verdict, reason)
+            except Exception as exc:
+                batch_num = b_start // BATCH + 1
+                print(f"  [filter] ERROR batch {batch_num}: {exc}", file=sys.stderr)
+                for gi in b_indices:
+                    results[gi] = ("TRUE_POSITIVE", f"filter skipped ({exc})")
 
     # Annotate and drop false positives
     kept = []
@@ -382,7 +438,7 @@ def main() -> None:
         raw_list = raw_data.get("endpoints", raw_data.get("matrix", []))
         wrapper  = raw_data
 
-    filtered = filter_endpoints(raw_list, src_root)
+    filtered = filter_endpoints(raw_list, src_root, wrapper=wrapper)
 
     if wrapper is not None:
         key = "endpoints" if "endpoints" in wrapper else "matrix"
