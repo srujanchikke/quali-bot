@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
-import type { CoverageGap, CoverageRunReport } from '@/types/reports'
-import { displayChainRoleLabel } from '@/lib/chainRoleLabel'
+import { buildPathFlowCoverageBlocks } from '@/lib/pathFlowCoverage'
+import type { LoadedRun } from '@/types/reports'
 
 function SectionTitle({ children }: { children: ReactNode }) {
   return (
@@ -38,93 +38,41 @@ function humanizeGapStatus(status: string | undefined): string {
   return map[status] ?? status.replace(/_/g, ' ')
 }
 
-function LeafBlock({
-  title,
-  leaf,
-}: {
-  title: string
-  leaf: { name?: string; file?: string; def_line?: number } | undefined
-}) {
-  return (
-    <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-card)] p-4">
-      <SectionTitle>{title}</SectionTitle>
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        <Field label="Function name">{leaf?.name ?? '—'}</Field>
-        <Field label="Source file path">
-          <span className="break-all font-mono text-xs">{leaf?.file ?? '—'}</span>
-        </Field>
-        <Field label="Line where the function definition starts">
-          {leaf?.def_line != null ? String(leaf.def_line) : '—'}
-        </Field>
-      </div>
-    </div>
-  )
+function coverageTone(percentage: number | null) {
+  if (percentage == null) return 'border-slate-500/20 bg-slate-500/8 text-[var(--app-text)]'
+  if (percentage === 100) return 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400'
+  if (percentage > 0) return 'border-amber-500/20 bg-amber-500/10 text-amber-400'
+  return 'border-rose-500/20 bg-rose-500/10 text-rose-400'
 }
 
-function GapCard({ gap, index }: { gap: CoverageGap; index: number }) {
-  const ratio = gap.line_coverage_ratio
-  const pct =
-    ratio != null && Number.isFinite(ratio)
-      ? `${(ratio <= 1 ? ratio * 100 : ratio).toFixed(1)}%`
-      : '—'
+function formatPercentage(value: number | null) {
+  if (value == null || !Number.isFinite(value)) return 'No measurable lines'
+  return `${value.toFixed(1)}%`
+}
 
+function MetricPill({
+  value,
+  label,
+}: {
+  value: string | number
+  label: string
+}) {
   return (
-    <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-elevated)] p-4">
-      <p className="text-sm font-medium text-[var(--app-text)]">
-        Gap {index + 1}
-        {gap.function ? `: ${gap.function}` : ''}
+    <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-card)] px-3 py-2">
+      <p className="text-sm font-semibold text-[var(--app-text)]">{value}</p>
+      <p className="mt-0.5 text-[11px] uppercase tracking-wide text-[var(--app-muted)]">
+        {label}
       </p>
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        <Field label="Function name">{gap.function ?? '—'}</Field>
-        <Field label="Role in the path (how this function is classified)">
-          {gap.role ? displayChainRoleLabel(gap.role) : '—'}
-        </Field>
-        <Field label="Source file path">
-          <span className="break-all font-mono text-xs">{gap.file ?? '—'}</span>
-        </Field>
-        <Field label="Line where the function definition starts">
-          {gap.def_line != null ? String(gap.def_line) : '—'}
-        </Field>
-        <Field label="Function body line range (first line through last line)">
-          {gap.body_span
-            ? `From line ${gap.body_span.start} through line ${gap.body_span.end}`
-            : '—'}
-        </Field>
-        <Field label="Number of source lines inside that body range">
-          {gap.lines_in_span != null ? String(gap.lines_in_span) : '—'}
-        </Field>
-        {gap.lines_without_lcov_da != null ? (
-          <Field label="Lines in the body that have no coverage data entry">
-            {String(gap.lines_without_lcov_da)}
-          </Field>
-        ) : null}
-        <Field label="Lines matched in the coverage data file for this body">
-          {gap.lcov_probed_lines != null
-            ? String(gap.lcov_probed_lines)
-            : '—'}
-        </Field>
-        <Field label="Lines in the body that appear in the coverage data file with a hit count">
-          {gap.lcov_hit_lines != null ? String(gap.lcov_hit_lines) : '—'}
-        </Field>
-        <Field label="Share of probed lines that were executed at least once">
-          {pct}
-        </Field>
-        <Field label="Outcome for this gap">{humanizeGapStatus(gap.status)}</Field>
-        {gap.note ? (
-          <Field label="Note">
-            <span>{gap.note}</span>
-          </Field>
-        ) : null}
-      </div>
     </div>
   )
 }
 
 type Props = {
-  report: CoverageRunReport | undefined
+  run: LoadedRun
 }
 
-export function CoverageReportHumanView({ report }: Props) {
+export function CoverageReportHumanView({ run }: Props) {
+  const report = run.coverageReport
   if (!report) {
     return (
       <p className="text-sm text-[var(--app-muted)]">
@@ -134,80 +82,166 @@ export function CoverageReportHumanView({ report }: Props) {
   }
 
   const d = report.d
-  const gaps = d?.gaps ?? []
   const reach = report.context?.reachability
-  const endpoints = reach?.endpoints ?? []
-  const leafPrimary = d?.leaf ?? report.context?.leaf
-  const leafPublic = report.LEAF_public
-  const leafPublicIsDuplicate =
-    leafPublic &&
-    leafPrimary &&
-    leafPublic.name === leafPrimary.name &&
-    leafPublic.file === leafPrimary.file &&
-    leafPublic.def_line === leafPrimary.def_line
+  const fallbackChain = run.pathFlow?.flows?.[0]?.chain?.map((step) => step.function) ?? []
+  const endpoints =
+    reach?.endpoints?.map((endpoint, index) => ({
+      ...endpoint,
+      chain:
+        endpoint.chain?.length
+          ? endpoint.chain
+          : run.pathFlow?.endpoints?.[index]?.chain?.length
+            ? run.pathFlow.endpoints[index]!.chain
+            : fallbackChain,
+    })) ?? []
+  const blocks = buildPathFlowCoverageBlocks(
+    run.pathFlow,
+    run.coverageReport,
+    run.finalReport,
+    run.rawFiles['line_hits.txt'],
+    run.rawFiles['lcov.info'],
+  )
+
+  const functionSummaries = blocks.map((block) => {
+    const measurableLines = block.lines.filter((line) => line.hits !== null)
+    const hitLines = measurableLines.filter((line) => (line.hits ?? 0) > 0)
+    const zeroHitLines = measurableLines.filter((line) => line.hits === 0)
+    const percentage =
+      measurableLines.length > 0 ? (hitLines.length / measurableLines.length) * 100 : null
+
+    return {
+      ...block,
+      measurableCount: measurableLines.length,
+      hitCount: hitLines.length,
+      zeroHitCount: zeroHitLines.length,
+      percentage,
+    }
+  })
+
+  const measuredFunctions = functionSummaries.filter((item) => item.measurableCount > 0)
+  const overallMeasuredLines = measuredFunctions.reduce(
+    (sum, item) => sum + item.measurableCount,
+    0,
+  )
+  const overallHitLines = measuredFunctions.reduce((sum, item) => sum + item.hitCount, 0)
+  const overallPercentage =
+    overallMeasuredLines > 0 ? (overallHitLines / overallMeasuredLines) * 100 : null
+  const zeroHitLinesTotal = measuredFunctions.reduce((sum, item) => sum + item.zeroHitCount, 0)
+  const chainFunctionCount = functionSummaries.length
+  const fullyCoveredFunctions = measuredFunctions.filter((item) => item.percentage === 100).length
+  const uncoveredFunctions = measuredFunctions.filter((item) => item.hitCount === 0).length
+  const functionsWithoutMeasuredLines = functionSummaries.filter(
+    (item) => item.measurableCount === 0,
+  ).length
 
   return (
     <div className="space-y-6">
-      <LeafBlock title="Leaf function (primary target)" leaf={leafPrimary} />
-
-      {gaps.length > 0 ? (
-        <div className="space-y-3">
-          <SectionTitle>Coverage gaps (detail per measured function)</SectionTitle>
-          <div className="space-y-4">
-            {gaps.map((gap, i) => (
-              <GapCard key={`${gap.file}-${gap.function}-${i}`} gap={gap} index={i} />
-            ))}
-          </div>
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-card)] p-4">
+          <SectionTitle>Overall flow coverage</SectionTitle>
+          <p className="mt-3 text-2xl font-semibold text-[var(--app-text)]">
+            {formatPercentage(overallPercentage)}
+          </p>
+          <p className="mt-2 text-sm text-[var(--app-text-secondary)]">
+            {overallMeasuredLines
+              ? `${overallHitLines} of ${overallMeasuredLines} measurable lines on the shown chain were hit.`
+              : 'No measurable lines were found for the shown chain in this run.'}
+          </p>
         </div>
-      ) : (
-        <p className="text-sm text-[var(--app-muted)]">
-          No per-function gap list was included in this report.
-        </p>
-      )}
+        <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-card)] p-4">
+          <SectionTitle>Functions measured on this flow</SectionTitle>
+          <p className="mt-3 text-2xl font-semibold text-[var(--app-text)]">
+            {chainFunctionCount}
+          </p>
+          <p className="mt-2 text-sm text-[var(--app-text-secondary)]">
+            {measuredFunctions.length
+              ? `${fullyCoveredFunctions} fully covered, ${uncoveredFunctions} with no hit lines, ${Math.max(measuredFunctions.length - fullyCoveredFunctions - uncoveredFunctions, 0)} partially covered.`
+              : 'The chain was identified, but this run did not measure any function lines yet.'}
+          </p>
+        </div>
+        <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-card)] p-4">
+          <SectionTitle>Measured lines summary</SectionTitle>
+          <p className="mt-3 text-2xl font-semibold text-[var(--app-text)]">
+            {overallHitLines} / {zeroHitLinesTotal}
+          </p>
+          <p className="mt-2 text-sm text-[var(--app-text-secondary)]">
+            Hit lines / zero-hit lines across the measured part of this flow.
+            {functionsWithoutMeasuredLines > 0
+              ? ` ${functionsWithoutMeasuredLines} function${functionsWithoutMeasuredLines === 1 ? '' : 's'} on the chain still had no measurable lines in this run.`
+              : ''}
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <SectionTitle>Function coverage on this flow</SectionTitle>
+        <div className="grid gap-4 lg:grid-cols-2">
+          {functionSummaries.map((item) => (
+            <div
+              key={`${item.file}-${item.functionName}`}
+              className="rounded-xl border border-[var(--app-border)] bg-[var(--app-elevated)] p-4"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-[var(--app-text)]">{item.functionName}</p>
+                  <p className="mt-1 break-all font-mono text-xs text-[var(--app-subtle)]">
+                    {item.file}
+                  </p>
+                </div>
+                <span
+                  className={`rounded-full border px-2.5 py-1 text-xs font-medium ${coverageTone(item.percentage)}`}
+                >
+                  {formatPercentage(item.percentage)}
+                </span>
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-[var(--app-text-secondary)]">
+                <span className="rounded-md bg-[var(--app-accent-muted)] px-1.5 py-0.5 font-medium uppercase tracking-wide text-[var(--app-accent)]">
+                  {item.roleLabel}
+                </span>
+              </div>
+              <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                <MetricPill value={item.hitCount} label="Covered" />
+                <MetricPill value={item.zeroHitCount} label="Missed" />
+                <MetricPill value={item.measurableCount} label="Total" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {endpoints.length > 0 ? (
         <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-card)] p-4">
-          <SectionTitle>Reachable HTTP routes and call chain</SectionTitle>
-          <p className="mt-1 text-xs text-[var(--app-muted)]">
-            Number of endpoints described: {reach?.endpoint_count ?? endpoints.length}
-          </p>
-          <ul className="mt-4 space-y-4">
+          <SectionTitle>Flow entry points</SectionTitle>
+          <div className="mt-4 space-y-4">
             {endpoints.map((ep, i) => (
-              <li
+              <div
                 key={`${ep.method}-${ep.path}-${i}`}
-                className="rounded-lg border border-[var(--app-border)] bg-[var(--app-elevated)] p-3"
+                className="rounded-lg border border-[var(--app-border)] bg-[var(--app-elevated)] p-4"
               >
-                <Field label="HTTP method">{ep.method}</Field>
-                <Field label="URL path">{ep.path}</Field>
-                <Field label="Handler function name">{ep.handler}</Field>
-                <Field label="Ordered chain of function names from route to leaf">
-                  {ep.chain?.length ? ep.chain.join(' → ') : '—'}
-                </Field>
-              </li>
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-[11px] font-medium text-[var(--app-subtle)]">API call</p>
+                    <p className="mt-1 text-sm leading-relaxed text-[var(--app-text)]">
+                      {ep.method} {ep.path}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-medium text-[var(--app-subtle)]">Handler</p>
+                    <p className="mt-1 text-sm leading-relaxed text-[var(--app-text)]">{ep.handler}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-medium text-[var(--app-subtle)]">Chain</p>
+                    <p className="mt-1 break-words text-sm leading-relaxed text-[var(--app-text-secondary)]">
+                      {ep.chain?.length ? ep.chain.join(' -> ') : 'No chain details were available.'}
+                    </p>
+                  </div>
+                </div>
+              </div>
             ))}
-          </ul>
+          </div>
         </div>
       ) : null}
 
-      {leafPublic &&
-      (leafPublic.name || leafPublic.file) &&
-      !leafPublicIsDuplicate ? (
-        <LeafBlock
-          title="Published leaf summary (second copy in the report file)"
-          leaf={leafPublic}
-        />
-      ) : null}
-
-      {d?.error != null && d.error !== false ? (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4">
-          <SectionTitle>Error from the coverage step</SectionTitle>
-          <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-all font-mono text-xs text-[var(--app-text)]">
-            {typeof d.error === 'string'
-              ? d.error
-              : JSON.stringify(d.error, null, 2)}
-          </pre>
-        </div>
-      ) : null}
     </div>
   )
 }

@@ -151,14 +151,14 @@ This uses `testing_agent/run_flow_pipeline.py`.
 
 ```bash
 python3 testing_agent/run_flow_pipeline.py \
-  --flow testing_agent/input.json
+  --flow testing_agent/adyen_get_auth_header_output.json
 ```
 
 Useful options:
 
 ```bash
 python3 testing_agent/run_flow_pipeline.py \
-  --flow testing_agent/input.json \
+  --flow testing_agent/adyen_get_auth_header_output.json \
   --dry-run \
   --verbose
 ```
@@ -203,7 +203,7 @@ Common environment variables:
 ```bash
 export HYPERSWITCH_ROOT="$HOME/hyperswitch"
 export CYPRESS_TESTS_ROOT="$HYPERSWITCH_ROOT/cypress-tests"
-export FLOW_JSON="$PWD/testing_agent/input.json"
+export FLOW_JSON="$PWD/testing_agent/adyen_get_auth_header_output.json"
 export BASE_URL="http://localhost:8080"
 ```
 
@@ -212,7 +212,7 @@ Example:
 ```bash
 HYPERSWITCH_ROOT="$HOME/hyperswitch" \
 CYPRESS_TESTS_ROOT="$HOME/hyperswitch/cypress-tests" \
-FLOW_JSON="$PWD/testing_agent/input.json" \
+FLOW_JSON="$PWD/testing_agent/adyen_get_auth_header_output.json" \
 bash report-generater/run_flow_coverage_report.sh
 ```
 

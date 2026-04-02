@@ -6,13 +6,16 @@ import { outputRunsPlugin } from './vite-plugin-output-runs'
 
 const reportGeneraterRoot = path.resolve(__dirname, '..')
 const outputDir = path.join(reportGeneraterRoot, 'output')
+const sourceRoot = process.env.HYPERSWITCH_ROOT
+  ? path.resolve(process.env.HYPERSWITCH_ROOT)
+  : path.resolve(__dirname, '..', '..', '..', 'hyperswitch')
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
-    outputRunsPlugin(outputDir),
+    outputRunsPlugin(outputDir, sourceRoot),
   ],
   resolve: {
     alias: {
@@ -21,7 +24,7 @@ export default defineConfig({
   },
   server: {
     fs: {
-      allow: [path.resolve(__dirname, '..')],
+      allow: [path.resolve(__dirname, '..'), sourceRoot],
     },
   },
 })

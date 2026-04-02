@@ -12,7 +12,7 @@ import {
 import { buildPathFlowCoverageBlocks } from '@/lib/pathFlowCoverage'
 import type { LoadedRun } from '@/types/reports'
 import { useTheme } from '@/theme/useTheme'
-import { LayoutDashboard, Moon, Sun } from 'lucide-react'
+import { ChevronDown, Moon, Sun } from 'lucide-react'
 
 type RunTab = 'overview' | 'testing' | 'coverage' | 'artifacts'
 
@@ -129,6 +129,130 @@ function renderAnsiText(text: string) {
   })
 }
 
+function JsonToken({ children, className }: { children: string; className: string }) {
+  return <span className={className}>{children}</span>
+}
+
+function renderMultilineJsonString(
+  source: string,
+  indentLevel: number,
+  nodePath: string,
+): React.ReactNode[] {
+  const indent = '  '.repeat(indentLevel)
+  const lines = source.replace(/\r\n/g, '\n').split('\n')
+  const nodes: React.ReactNode[] = ['"\n']
+
+  lines.forEach((line, index) => {
+    nodes.push(
+      <Fragment key={`source-line-${nodePath}-${index}`}>
+        {indent}  <span className="font-mono text-[12px] text-[var(--app-json-source)]">{line || ' '}</span>
+      </Fragment>,
+    )
+    nodes.push(index < lines.length - 1 ? '\n' : '')
+  })
+
+  nodes.push(`\n${indent}"`)
+  return nodes
+}
+
+function renderJsonValue(
+  value: unknown,
+  indentLevel = 0,
+  parentKey?: string,
+  nodePath = 'root',
+): React.ReactNode[] {
+  const indent = '  '.repeat(indentLevel)
+  const nextIndent = '  '.repeat(indentLevel + 1)
+
+  if (value === null) {
+    return [
+      <JsonToken
+        key={`${nodePath}-null`}
+        className="text-[var(--app-json-null)]"
+        children="null"
+      />,
+    ]
+  }
+
+  if (typeof value === 'string') {
+    if (parentKey === 'source' && value.includes('\n')) {
+      return renderMultilineJsonString(value, indentLevel, nodePath)
+    }
+    return [
+      <JsonToken
+        key={`${nodePath}-string`}
+        className="text-[var(--app-json-string)]"
+        children={JSON.stringify(value)}
+      />,
+    ]
+  }
+
+  if (typeof value === 'number') {
+    return [
+      <JsonToken
+        key={`${nodePath}-number`}
+        className="font-medium text-[var(--app-json-number)]"
+        children={String(value)}
+      />,
+    ]
+  }
+
+  if (typeof value === 'boolean') {
+    return [
+      <JsonToken
+        key={`${nodePath}-boolean`}
+        className="font-medium text-[var(--app-json-boolean)]"
+        children={String(value)}
+      />,
+    ]
+  }
+
+  if (Array.isArray(value)) {
+    if (value.length === 0) return ['[]']
+    const nodes: React.ReactNode[] = ['[\n']
+    value.forEach((item, index) => {
+      const childPath = `${nodePath}[${index}]`
+      nodes.push(<Fragment key={`arr-indent-${childPath}`}>{nextIndent}</Fragment>)
+      nodes.push(...renderJsonValue(item, indentLevel + 1, undefined, childPath))
+      nodes.push(index < value.length - 1 ? ',\n' : '\n')
+    })
+    nodes.push(`${indent}]`)
+    return nodes
+  }
+
+  if (typeof value === 'object') {
+    const entries = Object.entries(value)
+    if (entries.length === 0) return ['{}']
+    const nodes: React.ReactNode[] = ['{\n']
+    entries.forEach(([key, entryValue], index) => {
+      const childPath = `${nodePath}.${key}`
+      nodes.push(<Fragment key={`obj-indent-${childPath}`}>{nextIndent}</Fragment>)
+      nodes.push(
+        <JsonToken
+          key={`obj-key-${childPath}`}
+          className="text-[var(--app-json-key)]"
+          children={JSON.stringify(key)}
+        />,
+      )
+      nodes.push(': ')
+      nodes.push(...renderJsonValue(entryValue, indentLevel + 1, key, childPath))
+      nodes.push(index < entries.length - 1 ? ',\n' : '\n')
+    })
+    nodes.push(`${indent}}`)
+    return nodes
+  }
+
+  return [String(value)]
+}
+
+function renderStructuredText(text: string) {
+  const parsed = parseJsonObject(text)
+  if (parsed === undefined) {
+    return renderAnsiText(text)
+  }
+  return renderJsonValue(parsed)
+}
+
 function ArtifactFilePanel({
   text,
 }: {
@@ -139,8 +263,8 @@ function ArtifactFilePanel({
       {!text ? (
         <p className="text-xs text-[var(--app-muted)]">Not generated for this run.</p>
       ) : (
-        <pre className="max-h-[min(72vh,640px)] overflow-auto whitespace-pre-wrap break-words rounded-xl border border-[var(--app-border)] bg-[#05080d] p-4 text-[12px] leading-relaxed text-[var(--app-text-secondary)] shadow-inner">
-          {renderAnsiText(text)}
+        <pre className="max-h-[min(72vh,640px)] overflow-auto whitespace-pre-wrap break-words rounded-xl border border-[var(--app-border)] bg-[var(--app-code-bg)] p-4 text-[12px] leading-relaxed text-[var(--app-text)] shadow-inner">
+          {renderStructuredText(text)}
         </pre>
       )}
     </section>
@@ -168,6 +292,313 @@ function includesAny(text: string, needles: string[]) {
   return needles.some((needle) => lower.includes(needle.toLowerCase()))
 }
 
+type ParsedTestingSpec = {
+  spec: string
+  tests: number
+  passing: number
+  failing: number
+  pending: number
+  skipped: number
+  screenshots: number
+  videoEnabled: boolean | null
+  videoOutput: string | null
+  duration: string
+  suiteTitles: string[]
+  passingNotes: string[]
+  failedTests: string[]
+  requestIds: string[]
+  stepNames: string[]
+  methods: string[]
+  urls: string[]
+  responseStatuses: string[]
+  responseMessages: string[]
+  issueSnippets: string[]
+  failureDetails: Array<{
+    title: string
+    method?: string
+    url?: string
+    status?: string
+    message?: string
+  }>
+  status: 'ok' | 'partial' | 'failed'
+}
+
+type ParsedTestingRun = {
+  setupSpecs: string[]
+  targetSpec: string | null
+  command: string | null
+  failureHeadlines: string[]
+  specRuns: ParsedTestingSpec[]
+  summary:
+    | {
+        failedSpecs: number
+        totalSpecs: number
+        failureRateLabel: string
+        duration: string
+        totalTests: number
+        passing: number
+        failing: number
+      }
+    | null
+  postRunSteps: string[]
+}
+
+function toCount(value: string | undefined): number {
+  if (!value || value.trim() === '-') return 0
+  const parsed = Number.parseInt(value.trim(), 10)
+  return Number.isNaN(parsed) ? 0 : parsed
+}
+
+function parseQuotedSpecList(line: string | undefined): string[] {
+  if (!line) return []
+  return Array.from(line.matchAll(/'([^']+\.cy\.js)'/g), (match) => match[1])
+}
+
+function formatDurationAsMs(duration: string | undefined): string {
+  if (!duration) return '—'
+  const value = duration.trim()
+
+  if (/^\d+ms$/i.test(value)) {
+    return value.toLowerCase()
+  }
+
+  if (/^\d+s$/i.test(value)) {
+    const seconds = Number.parseInt(value, 10)
+    return Number.isNaN(seconds) ? value : `${seconds * 1000}ms`
+  }
+
+  if (/^\d+\s+second(s)?$/i.test(value)) {
+    const seconds = Number.parseInt(value, 10)
+    return Number.isNaN(seconds) ? value : `${seconds * 1000}ms`
+  }
+
+  if (/^\d{2}:\d{2}$/.test(value)) {
+    const [minutes, seconds] = value.split(':').map((part) => Number.parseInt(part, 10))
+    if (!Number.isNaN(minutes) && !Number.isNaN(seconds)) {
+      return `${(minutes * 60 + seconds) * 1000}ms`
+    }
+  }
+
+  return value
+}
+
+function parseTestingTerminalSummary(text: string | undefined): ParsedTestingRun | null {
+  if (!text) return null
+
+  const setupLine = text.match(/setup:\s*\[(.+?)\]/)
+  const targetSpec = text.match(/test:\s+([^\n]+\.cy\.js)/)?.[1]?.trim() ?? null
+  const command = text.match(/Running:\s+(npx cypress run[^\n]+)/)?.[1]?.trim() ?? null
+
+  const failureHeadlinesBlock = text.match(/Failed tests:\n([\s\S]*?)\n\n[─-]{20,}/)
+  const failureHeadlines = failureHeadlinesBlock
+    ? Array.from(
+        failureHeadlinesBlock[1].matchAll(/^\s*✗\s+(.+)$/gm),
+        (match) => match[1].trim(),
+      )
+    : []
+
+  const summaryTableDurations = new Map<string, string>()
+  text.split('\n').forEach((line) => {
+    const match = line.match(
+      /[│|]\s*[✖✔]\s+([^\s]+\.cy\.js)\s+([0-9:]+|[0-9]+ms)\s+\d+\s+[0-9-]+\s+[0-9-]+\s+[0-9-]+\s+-\s+-\s*[│|]?/,
+    )
+    if (match) {
+      summaryTableDurations.set(match[1].trim(), match[2].trim())
+    }
+  })
+
+  const specRuns = Array.from(
+    text.matchAll(
+      /Running:\s+([^\s]+\.cy\.js)[\s\S]*?\(Results\)[\s\S]*?Tests:\s+([0-9-]+)[\s\S]*?Passing:\s+([0-9-]+)[\s\S]*?Failing:\s+([0-9-]+)[\s\S]*?Duration:\s+([^\n]+)[\s\S]*?Spec Ran:\s+([^\n]+)[\s\S]*?(?=\n────────────────|\nStart generate report process|\n====================================================================================================|\s*$)/g,
+    ),
+  ).map((match) => {
+    const block = match[0]
+    const tests = toCount(match[2])
+    const passing = toCount(match[3])
+    const failing = toCount(match[4])
+    const pending = toCount(block.match(/Pending:\s+([0-9-]+)/)?.[1])
+    const skipped = toCount(block.match(/Skipped:\s+([0-9-]+)/)?.[1])
+    const screenshots = toCount(block.match(/Screenshots:\s+([0-9-]+)/)?.[1])
+    const videoRaw = block.match(/Video:\s+([^\n]+)/)?.[1]?.trim().toLowerCase()
+    const videoEnabled =
+      videoRaw == null ? null : videoRaw === 'true' ? true : videoRaw === 'false' ? false : null
+    const videoOutput = block.match(/Video output:\s+([^\n]+)/)?.[1]?.trim() ?? null
+    const suiteTitles = Array.from(
+      new Set(
+        block
+          .split('\n')
+          .map((line) => line.trim())
+          .filter(
+            (line) =>
+              line.length > 0 &&
+              !/^[=\-─│┌└├┐┘┤┬┴┼\s]+$/.test(line) &&
+              !/^[│\s]*(Tests|Passing|Failing|Pending|Skipped|Screenshots|Video|Duration|Spec Ran):/i.test(
+                line,
+              ) &&
+              !line.startsWith('Running:') &&
+              !line.startsWith('Logging console message from task') &&
+              !line.startsWith('x-request-id') &&
+              !/^\d+\s+(passing|failing|pending)/i.test(line) &&
+              !/^[0-9]+\)/.test(line) &&
+              !line.startsWith('✓') &&
+              !line.startsWith('- ') &&
+              !line.startsWith('STEP:') &&
+              !line.startsWith('(') &&
+              !line.startsWith('[') &&
+              !line.startsWith('Method:') &&
+              !line.startsWith('URL:') &&
+              !line.startsWith('Headers:') &&
+              !line.startsWith('Body:') &&
+              !line.startsWith('Status:') &&
+              !line.startsWith('Error:') &&
+              !line.startsWith('CypressError:') &&
+              !line.startsWith('Common situations') &&
+              !line.startsWith('The request we sent was:') &&
+              !line.startsWith('The response we got was:') &&
+              !line.startsWith('This was considered a failure') &&
+              !line.startsWith('If you do not want') &&
+              !line.startsWith('From Your Spec Code:') &&
+              !line.startsWith('From Node.js Internals:') &&
+              !line.startsWith('at ') &&
+              !line.startsWith('>')
+          ),
+      ),
+    ).slice(0, 3)
+    const passingNotes = Array.from(
+      new Set(
+        Array.from(block.matchAll(/^\s*✓\s+(.+)$/gm), (m) => m[1].trim()).filter(
+          (line) => !line.includes('create-shadow-config-if-shadow-mode-enabled'),
+        ),
+      ),
+    ).slice(0, 5)
+    const requestIds = Array.from(
+      new Set(
+        Array.from(block.matchAll(/x-request-id\s*->\s*([A-Za-z0-9-]+)/g), (requestIdMatch) => requestIdMatch[1]),
+      ),
+    )
+    const methods = Array.from(
+      new Set(Array.from(block.matchAll(/Method:\s+([A-Z]+)/g), (m) => m[1].trim())),
+    )
+    const urls = Array.from(
+      new Set(Array.from(block.matchAll(/URL:\s+(https?:\/\/[^\s]+)/g), (m) => m[1].trim())),
+    )
+    const responseStatuses = Array.from(
+      new Set(Array.from(block.matchAll(/Status:\s+(\d+\s+-\s+[^\n]+)/g), (m) => m[1].trim())),
+    )
+    const responseMessages = Array.from(
+      new Set(
+        [
+          ...Array.from(block.matchAll(/"message":\s*"([^"]+)"/g), (m) => m[1].trim()),
+          ...Array.from(block.matchAll(/Error:\s+([^\n]+)/g), (m) => m[1].trim()),
+        ],
+      ),
+    ).slice(0, 4)
+    const inlineDurationMatch = block.match(/\n\s*\d+\s+(?:passing|failing)[^\n]*\((\d+ms|\d+s)\)/i)
+    const stepNames = Array.from(
+      new Set(
+        Array.from(block.matchAll(/STEP:\s+([^\n]+)/g), (stepMatch) => stepMatch[1].trim()),
+      ),
+    )
+    const failedTests = Array.from(
+      block.matchAll(/^\s+\d+\)\s+([\s\S]*?):$/gm),
+      (failureMatch) => failureMatch[1].replace(/\s+/g, ' ').trim(),
+    )
+    const issueSnippets = Array.from(
+      new Set(
+        [
+          ...Array.from(block.matchAll(/CypressError:\s*`cy\.request\(\)` failed[^\n]*/g), (m) =>
+            m[0].trim(),
+          ),
+          ...Array.from(block.matchAll(/Error:\s+[^\n]+/g), (m) => m[0].trim()),
+          ...Array.from(block.matchAll(/>\s+\d{3}:\s+[^\n]+/g), (m) => m[0].replace(/^>\s+/, '').trim()),
+          ...Array.from(block.matchAll(/connect ECONNREFUSED[^\n]*/g), (m) => m[0].trim()),
+        ],
+      ),
+    ).slice(0, 4)
+    const failureDetails = Array.from(
+      block.matchAll(
+        /\n\s+\d+\)\s+([\s\S]*?):\n\s+(CypressError:[\s\S]*?|Error:[\s\S]*?)(?=\n\s+\d+\)\s+|\n\n\[mochawesome\]|\n\n  \(Results\)|$)/g,
+      ),
+    )
+      .map((failureMatch) => {
+        const detailBlock = failureMatch[2]
+        const message =
+          detailBlock.match(/Error:\s+([^\n]+)/)?.[1]?.trim() ??
+          detailBlock.match(/CypressError:\s*([^\n]+)/)?.[1]?.trim()
+        return {
+          title: failureMatch[1].replace(/\s+/g, ' ').trim(),
+          method: detailBlock.match(/Method:\s+([A-Z]+)/)?.[1]?.trim(),
+          url: detailBlock.match(/URL:\s+(https?:\/\/[^\s]+)/)?.[1]?.trim(),
+          status:
+            detailBlock.match(/Status:\s+(\d+\s+-\s+[^\n]+)/)?.[1]?.trim() ??
+            detailBlock.match(/connect ECONNREFUSED[^\n]*/)?.[0]?.trim(),
+          message,
+        }
+      })
+      .slice(0, 6)
+
+    const specName = match[6].trim() || match[1].trim()
+
+    return {
+      spec: specName,
+      tests,
+      passing,
+      failing,
+      pending,
+      skipped,
+      screenshots,
+      videoEnabled,
+      videoOutput,
+      duration: formatDurationAsMs(
+        inlineDurationMatch?.[1] ?? summaryTableDurations.get(specName) ?? match[5].trim(),
+      ),
+      suiteTitles,
+      passingNotes,
+      failedTests,
+      requestIds,
+      stepNames,
+      methods,
+      urls,
+      responseStatuses,
+      responseMessages,
+      issueSnippets,
+      failureDetails,
+      status: failing > 0 ? 'failed' : passing > 0 ? 'ok' : 'partial',
+    } satisfies ParsedTestingSpec
+  })
+
+  const summaryMatch = text.match(
+    /✖\s+(\d+)\s+of\s+(\d+)\s+failed\s+\(([^)]+)\)\s+([0-9:]+)\s+(\d+)\s+(\d+)\s+(\d+)/,
+  )
+
+  const postRunSteps = [
+    ...Array.from(
+      text.matchAll(/^(Start generate report process|Read and merge jsons[^\n]*|Copy media folder[^\n]*|Enhance report|Create HTML report|HTML report successfully created!|Auto-fix: [^\n]*|Simple value fix failed[^\n]*|LLM response missing [^\n]*|❌ [^\n]*|Flow pipeline completed)$/gm),
+      (match) => match[1].trim(),
+    ),
+  ]
+
+  return {
+    setupSpecs: parseQuotedSpecList(setupLine?.[0]),
+    targetSpec,
+    command,
+    failureHeadlines,
+    specRuns,
+    summary: summaryMatch
+      ? {
+          failedSpecs: toCount(summaryMatch[1]),
+          totalSpecs: toCount(summaryMatch[2]),
+          failureRateLabel: summaryMatch[3].trim(),
+          duration: formatDurationAsMs(summaryMatch[4].trim()),
+          totalTests: toCount(summaryMatch[5]),
+          passing: toCount(summaryMatch[6]),
+          failing: toCount(summaryMatch[7]),
+        }
+      : null,
+    postRunSteps,
+  }
+}
+
 export default function App() {
   const { theme, toggle } = useTheme()
   const [run, setRun] = useState<LoadedRun | null>(null)
@@ -178,6 +609,7 @@ export default function App() {
   const [runsError, setRunsError] = useState<string | null>(null)
   const [activeRunId, setActiveRunId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<RunTab>('overview')
+  const [copiedCommand, setCopiedCommand] = useState(false)
 
   const refreshRuns = useCallback(async () => {
     setRunsLoading(true)
@@ -245,6 +677,14 @@ export default function App() {
     [run],
   )
 
+  const testingRun = useMemo(
+    () =>
+      parseTestingTerminalSummary(
+        run?.rawFiles['terminal_output.log'] ?? run?.rawFiles['flow_pipeline.log'],
+      ),
+    [run],
+  )
+
   const overviewCoverageBlock = useMemo(() => {
     if (!run) return null
     const blocks = buildPathFlowCoverageBlocks(
@@ -252,8 +692,38 @@ export default function App() {
       run.coverageReport,
       run.finalReport,
       run.rawFiles['line_hits.txt'],
+      run.rawFiles['lcov.info'],
     )
     return blocks.find((block) => block.roleLabel === 'Leaf') ?? blocks[blocks.length - 1] ?? null
+  }, [run])
+
+  const overviewCoverageSummary = useMemo(() => {
+    if (!run) return null
+    const blocks = buildPathFlowCoverageBlocks(
+      run.pathFlow,
+      run.coverageReport,
+      run.finalReport,
+      run.rawFiles['line_hits.txt'],
+      run.rawFiles['lcov.info'],
+    )
+    const measurableLines = blocks.flatMap((block) => block.lines).filter((line) => line.hits !== null)
+    const coveredLines = measurableLines.filter((line) => (line.hits ?? 0) > 0)
+    const missedLines = measurableLines.filter((line) => line.hits === 0)
+    const fullyCoveredFunctions = blocks.filter((block) => {
+      const measured = block.lines.filter((line) => line.hits !== null)
+      return measured.length > 0 && measured.every((line) => (line.hits ?? 0) > 0)
+    }).length
+
+    return {
+      functionCount: blocks.length,
+      fullyCoveredFunctions,
+      measurableLineCount: measurableLines.length,
+      coveredLineCount: coveredLines.length,
+      missedLineCount: missedLines.length,
+      percentage: measurableLines.length
+        ? (coveredLines.length / measurableLines.length) * 100
+        : null,
+    }
   }, [run])
 
   const overview = useMemo(() => {
@@ -430,6 +900,8 @@ export default function App() {
     }
   }, [run, cypressParsed])
 
+  const overviewRequestId = overview?.requestIds?.[0] ?? summary?.requestId ?? null
+
   return (
     <div className="flex min-h-dvh flex-col bg-[var(--app-bg)] text-[var(--app-text)]">
       <header
@@ -438,11 +910,6 @@ export default function App() {
       >
         <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-4 px-5 py-4">
           <div className="flex items-center gap-3">
-            <div
-              className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-[var(--app-accent)] to-[var(--app-accent-hover)] shadow-[0_0_24px_var(--app-accent-glow)]"
-            >
-              <LayoutDashboard className="size-5 text-white" aria-hidden />
-            </div>
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--app-accent)]">
                 Hyperswitch
@@ -563,16 +1030,16 @@ export default function App() {
                             {run.id}
                           </p>
                         </div>
-                        {summary?.requestId ? (
+                        {overviewRequestId ? (
                           <div className="min-w-0">
                             <p className="text-xs font-medium uppercase tracking-wider text-[var(--app-muted)]">
                               Request id
                             </p>
                             <p
                               className="mt-1 break-all font-mono text-xs text-[var(--app-text-secondary)] [overflow-wrap:anywhere]"
-                              title={summary.requestId}
+                              title={overviewRequestId}
                             >
-                              {summary.requestId}
+                              {overviewRequestId}
                             </p>
                           </div>
                         ) : null}
@@ -603,19 +1070,142 @@ export default function App() {
                         </div>
                       ) : null}
 
+                      {testingRun?.summary || overviewCoverageSummary || run.finalReport?.root_cause_analysis ? (
+                        <div className="grid gap-4">
+                          <div
+                            className={
+                              testingRun?.summary ? 'grid gap-4' : 'grid gap-4 xl:grid-cols-2'
+                            }
+                          >
+                            {overviewCoverageSummary ? (
+                              <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-elevated)] p-4">
+                                <h3 className="text-xs font-medium uppercase tracking-wider text-[var(--app-muted)]">
+                                  Coverage summary
+                                </h3>
+                                <div className="mt-4 grid gap-3 sm:grid-cols-4">
+                                  <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-card)] p-3">
+                                    <p className="text-[11px] uppercase tracking-wide text-[var(--app-subtle)]">
+                                      Flow coverage
+                                    </p>
+                                    <p className="mt-2 text-lg font-semibold text-[var(--app-text)]">
+                                      {overviewCoverageSummary.percentage == null
+                                        ? '—'
+                                        : `${overviewCoverageSummary.percentage.toFixed(1)}%`}
+                                    </p>
+                                  </div>
+                                  <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-card)] p-3">
+                                    <p className="text-[11px] uppercase tracking-wide text-[var(--app-subtle)]">
+                                      Functions
+                                    </p>
+                                    <p className="mt-2 text-lg font-semibold text-[var(--app-text)]">
+                                      {overviewCoverageSummary.functionCount}
+                                    </p>
+                                  </div>
+                                  <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-card)] p-3">
+                                    <p className="text-[11px] uppercase tracking-wide text-[var(--app-subtle)]">
+                                      Covered lines
+                                    </p>
+                                    <p className="mt-2 text-lg font-semibold text-emerald-500">
+                                      {overviewCoverageSummary.coveredLineCount}
+                                    </p>
+                                  </div>
+                                  <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-card)] p-3">
+                                    <p className="text-[11px] uppercase tracking-wide text-[var(--app-subtle)]">
+                                      Missed lines
+                                    </p>
+                                    <p className="mt-2 text-lg font-semibold text-rose-500">
+                                      {overviewCoverageSummary.missedLineCount}
+                                    </p>
+                                  </div>
+                                </div>
+                                <p className="mt-3 text-sm leading-relaxed text-[var(--app-text-secondary)]">
+                                  {overviewCoverageSummary.fullyCoveredFunctions} fully covered function{overviewCoverageSummary.fullyCoveredFunctions === 1 ? '' : 's'} out of {overviewCoverageSummary.functionCount} on the selected flow path.
+                                </p>
+                              </div>
+                            ) : null}
+
+                            {run.finalReport?.root_cause_analysis ? (
+                              <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-elevated)] p-4">
+                                <h3 className="text-xs font-medium uppercase tracking-wider text-[var(--app-muted)]">
+                                  Root cause analysis
+                                </h3>
+                                <div className="mt-4 grid gap-4 xl:grid-cols-[260px_minmax(0,1fr)]">
+                                  <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-card)] p-4">
+                                    <p className="text-[11px] uppercase tracking-wide text-[var(--app-subtle)]">
+                                      Status
+                                    </p>
+                                    <div className="mt-3">
+                                      <span className="inline-flex rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-sm font-medium capitalize tracking-wide text-amber-400">
+                                        {run.finalReport.root_cause_analysis.status?.replace(/_/g, ' ') ?? 'Unknown'}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <div className="grid gap-3">
+                                    {run.finalReport.root_cause_analysis.reason ? (
+                                      <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-card)] p-4">
+                                        <p className="text-[11px] uppercase tracking-wide text-[var(--app-subtle)]">
+                                          Main reason
+                                        </p>
+                                        <p className="mt-2 text-sm leading-relaxed text-[var(--app-text-secondary)]">
+                                          {run.finalReport.root_cause_analysis.reason}
+                                        </p>
+                                      </div>
+                                    ) : null}
+                                    {run.finalReport.root_cause_analysis.why_coverage_is_zero ? (
+                                      <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-card)] p-4">
+                                        <p className="text-[11px] uppercase tracking-wide text-[var(--app-subtle)]">
+                                          Coverage impact
+                                        </p>
+                                        <p className="mt-2 text-sm leading-relaxed text-[var(--app-text-secondary)]">
+                                          {run.finalReport.root_cause_analysis.why_coverage_is_zero}
+                                        </p>
+                                      </div>
+                                    ) : null}
+                                    {run.finalReport.root_cause_analysis.contributing_failures?.length ? (
+                                      <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-card)] p-4">
+                                        <p className="text-[11px] uppercase tracking-wide text-[var(--app-subtle)]">
+                                          Related failures
+                                        </p>
+                                        <div className="mt-2 space-y-2">
+                                          {run.finalReport.root_cause_analysis.contributing_failures.map((item) => (
+                                            <div
+                                              key={item}
+                                              className="rounded-md border border-[var(--app-border)] bg-[var(--app-elevated)] px-3 py-2 text-sm leading-relaxed text-[var(--app-text-secondary)]"
+                                            >
+                                              {item}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                </div>
+                              </div>
+                            ) : null}
+                          </div>
+                        </div>
+                      ) : null}
+
                       {overview ? (
                         <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-elevated)] p-4">
                           <h3 className="text-xs font-medium uppercase tracking-wider text-[var(--app-muted)]">
                             What happened overall
                           </h3>
-                          <p className="mt-3 text-sm leading-relaxed text-[var(--app-text-secondary)]">
-                            The pipeline itself completed successfully:
-                          </p>
-                          <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-[var(--app-text-secondary)]">
+                          <div className="mt-3 space-y-2">
                             {overview.whatWorked.map((item) => (
-                              <li key={item}>{item}</li>
+                              <div
+                                key={item}
+                                className="flex items-center gap-3 rounded-lg border border-[var(--app-border)] bg-[var(--app-card)] px-3 py-2"
+                              >
+                                <span className="inline-flex size-5 items-center justify-center rounded-full bg-emerald-500/10 text-xs font-semibold text-emerald-400">
+                                  ✓
+                                </span>
+                                <p className="text-sm leading-relaxed text-[var(--app-text-secondary)]">
+                                  {item}
+                                </p>
+                              </div>
                             ))}
-                          </ul>
+                          </div>
                           <p className="mt-4 text-sm leading-relaxed text-[var(--app-text-secondary)]">
                             So this is not a pipeline failure. It is a successful run of the
                             pipeline with failing business or test steps.
@@ -641,132 +1231,6 @@ export default function App() {
                         </div>
                       ) : null}
 
-                      {overview?.specBreakdown?.length ? (
-                        <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-elevated)] p-4">
-                          <h3 className="text-xs font-medium uppercase tracking-wider text-[var(--app-muted)]">
-                            Test breakdown
-                          </h3>
-                          <div className="mt-3 space-y-3">
-                            {overview.specBreakdown.map((item) => (
-                              <div
-                                key={item.spec}
-                                className="rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-3"
-                              >
-                                <p className="font-mono text-xs text-[var(--app-text)]">
-                                  {item.spec}
-                                </p>
-                                <p className="mt-2 text-sm leading-relaxed text-[var(--app-text-secondary)]">
-                                  {item.summary}
-                                </p>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ) : null}
-
-                      <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-elevated)] p-4">
-                        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                          <h3 className="text-xs font-medium uppercase tracking-wider text-[var(--app-muted)]">
-                            Target function coverage
-                          </h3>
-                          {overviewCoverageBlock ? (
-                            <span className="rounded-md bg-[var(--app-accent-muted)] px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[var(--app-accent)]">
-                              {overviewCoverageBlock.roleLabel}
-                            </span>
-                          ) : null}
-                        </div>
-                        {overviewCoverageBlock ? (
-                          <>
-                            <p className="mt-3 break-all font-mono text-xs text-[var(--app-text-secondary)]">
-                              {overviewCoverageBlock.functionName}
-                            </p>
-                            <div className="mt-3 overflow-x-auto rounded-xl border border-[var(--app-border)] bg-[var(--app-code-bg)]">
-                              <table className="w-full min-w-[min(100%,640px)] border-collapse text-left text-[11px] leading-snug">
-                                <thead>
-                                  <tr className="border-b border-[var(--app-border)] bg-[var(--app-elevated)] text-[var(--app-muted)]">
-                                    <th className="w-12 px-2 py-1.5 font-medium">Line</th>
-                                    <th className="w-14 px-2 py-1.5 font-medium">Hits</th>
-                                    <th className="px-2 py-1.5 font-medium">Code</th>
-                                  </tr>
-                                </thead>
-                                <tbody className="text-[var(--app-text)]">
-                                  {overviewCoverageBlock.lines.map((row) => (
-                                    <tr
-                                      key={row.lineNumber}
-                                      className={
-                                        row.hits === null
-                                          ? ''
-                                          : row.hits === 0
-                                            ? 'bg-red-500/[0.07] dark:bg-red-500/[0.09]'
-                                            : 'bg-emerald-500/[0.06] dark:bg-emerald-500/[0.08]'
-                                      }
-                                    >
-                                      <td className="whitespace-nowrap px-2 py-px align-top font-mono text-[var(--app-muted)]">
-                                        {row.lineNumber}
-                                      </td>
-                                      <td className="whitespace-nowrap px-2 py-px align-top font-mono text-[var(--app-muted)]">
-                                        {row.hits === null ? '—' : row.hits}
-                                      </td>
-                                      <td className="px-2 py-px align-top">
-                                        <pre className="m-0 max-w-none whitespace-pre-wrap break-all font-mono text-[11px]">
-                                          {row.text || ' '}
-                                        </pre>
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                            <p className="mt-2 text-xs text-[var(--app-muted)]">
-                              Gap status:{' '}
-                              <span className="font-medium text-[var(--app-text)]">
-                                {run.finalReport.coverage_diff?.gap_status?.replace(/_/g, ' ') ??
-                                  '—'}
-                              </span>
-                            </p>
-                          </>
-                        ) : (
-                          <p className="mt-3 text-xs text-[var(--app-muted)]">
-                            {run.coverageReport?.d?.kind === 'coverage_unavailable'
-                              ? `Coverage for the target function is unavailable for this run because ${String(run.coverageReport.d.error ?? 'no LLVM profile data was generated')}.`
-                              : 'No embedded source is available for the target function in this run.'}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="grid gap-4 md:grid-cols-2">
-                        <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-elevated)] p-4">
-                          <h3 className="text-xs font-medium uppercase tracking-wider text-[var(--app-muted)]">
-                            API calls
-                          </h3>
-                          {run.pathFlow?.endpoints?.length ? (
-                            <div className="mt-3 space-y-2">
-                              {run.pathFlow.endpoints.map((endpoint) => (
-                                <p
-                                  key={`${endpoint.method}-${endpoint.path}-${endpoint.handler}`}
-                                  className="break-all font-mono text-xs text-[var(--app-text-secondary)]"
-                                >
-                                  {endpoint.method} {endpoint.path}
-                                </p>
-                              ))}
-                            </div>
-                          ) : (
-                            <p className="mt-3 break-all font-mono text-xs text-[var(--app-text-secondary)]">
-                              {run.finalReport.api_call?.method}{' '}
-                              {run.finalReport.api_call?.endpoint}
-                            </p>
-                          )}
-                        </div>
-
-                        <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-elevated)] p-4">
-                          <h3 className="text-xs font-medium uppercase tracking-wider text-[var(--app-muted)]">
-                            Request id correlation
-                          </h3>
-                          <p className="mt-3 break-all font-mono text-xs text-[var(--app-text-secondary)]">
-                            {overview?.requestIds?.join(', ') || 'No request id captured.'}
-                          </p>
-                        </div>
-                      </div>
                     </div>
                   </CollapsibleSection>
                 ) : (
@@ -783,16 +1247,16 @@ export default function App() {
                           {run.id}
                         </p>
                       </div>
-                      {summary?.requestId ? (
+                      {overviewRequestId ? (
                         <div className="min-w-0">
                           <p className="text-xs font-medium uppercase tracking-wider text-[var(--app-muted)]">
                             Request id
                           </p>
                           <p
                             className="mt-1 break-all font-mono text-xs text-[var(--app-text-secondary)] [overflow-wrap:anywhere]"
-                            title={summary.requestId}
+                            title={overviewRequestId}
                           >
-                            {summary.requestId}
+                            {overviewRequestId}
                           </p>
                         </div>
                       ) : null}
@@ -804,57 +1268,494 @@ export default function App() {
 
             {activeTab === 'testing' ? (
               <CollapsibleSection title="Testing pipeline" defaultOpen>
-                <div className="space-y-5 text-sm">
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-elevated)] p-3">
+                <div className="space-y-6 text-sm">
+                  <div className="grid gap-4 lg:grid-cols-4">
+                    <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-card)] p-4">
                       <p className="text-xs uppercase tracking-wider text-[var(--app-muted)]">
-                        Passing
+                        Overall result
                       </p>
-                      <p className="mt-1 text-base font-semibold text-emerald-500">
-                        {cypressParsed?.passing_count ?? 0}
+                      <p className="mt-3 text-lg font-semibold text-[var(--app-text)]">
+                        {(overview?.apiStatus ?? 'partial') === 'ok'
+                          ? 'Tests passed'
+                          : (overview?.apiStatus ?? 'partial') === 'failed'
+                            ? 'Tests failed'
+                            : 'Partially successful'}
+                      </p>
+                      <p className="mt-2 text-sm leading-relaxed text-[var(--app-text-secondary)]">
+                        {(cypressParsed?.total_tests ?? run.finalReport?.test_results?.total_tests ?? 0) > 0
+                          ? `${cypressParsed?.passing_count ?? run.finalReport?.test_results?.passing_count ?? 0} passed and ${cypressParsed?.failing_count ?? run.finalReport?.test_results?.failing_count ?? 0} failed in the parsed test output.`
+                          : 'No parsed Cypress test count is available for this run.'}
                       </p>
                     </div>
-                    <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-elevated)] p-3">
+                    <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-card)] p-4">
                       <p className="text-xs uppercase tracking-wider text-[var(--app-muted)]">
-                        Failing
+                        Passed checks
                       </p>
-                      <p className="mt-1 text-base font-semibold text-rose-500">
-                        {cypressParsed?.failing_count ?? 0}
+                      <p className="mt-3 text-2xl font-semibold text-emerald-500">
+                        {cypressParsed?.passing_count ?? run.finalReport?.test_results?.passing_count ?? 0}
+                      </p>
+                      <p className="mt-2 text-sm text-[var(--app-text-secondary)]">
+                        Parsed passing Cypress checks.
                       </p>
                     </div>
-                    <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-elevated)] p-3">
+                    <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-card)] p-4">
                       <p className="text-xs uppercase tracking-wider text-[var(--app-muted)]">
-                        Total
+                        Failed checks
                       </p>
-                      <p className="mt-1 text-base font-semibold text-[var(--app-text)]">
-                        {cypressParsed?.total_tests ?? 0}
+                      <p className="mt-3 text-2xl font-semibold text-rose-500">
+                        {cypressParsed?.failing_count ??
+                          run.finalReport?.test_results?.failing_count ??
+                          0}
+                      </p>
+                      <p className="mt-2 text-sm text-[var(--app-text-secondary)]">
+                        Parsed failing Cypress checks.
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-card)] p-4">
+                      <p className="text-xs uppercase tracking-wider text-[var(--app-muted)]">
+                        Total parsed
+                      </p>
+                      <p className="mt-3 text-2xl font-semibold text-[var(--app-text)]">
+                        {cypressParsed?.total_tests ?? run.finalReport?.test_results?.total_tests ?? 0}
+                      </p>
+                      <p className="mt-2 text-sm text-[var(--app-text-secondary)]">
+                        Total checks seen by the parser for this run.
                       </p>
                     </div>
                   </div>
-                  <div>
-                    <p className="text-xs font-medium uppercase tracking-wider text-[var(--app-muted)]">
-                      Request ids seen in tests
-                    </p>
-                    <p className="mt-1 break-all font-mono text-xs text-[var(--app-text-secondary)]">
-                      {(cypressParsed?.request_ids ?? []).join(', ') || 'None'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-medium uppercase tracking-wider text-[var(--app-muted)]">
-                      Failing tests
-                    </p>
-                    {(cypressParsed?.failed_test_names ?? []).length ? (
-                      <ul className="mt-2 list-disc space-y-1 pl-5 text-[var(--app-text-secondary)]">
-                        {(cypressParsed?.failed_test_names ?? []).map((name) => (
-                          <li key={name}>{name}</li>
+
+                  {(testingRun?.setupSpecs.length || testingRun?.targetSpec || testingRun?.command) ? (
+                    <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-card)] p-4">
+                      <h3 className="text-xs font-medium uppercase tracking-wider text-[var(--app-muted)]">
+                        Cypress execution plan
+                      </h3>
+                      <div className="mt-4 grid gap-4 lg:grid-cols-3">
+                        <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-elevated)] p-3">
+                          <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--app-subtle)]">
+                            Setup specs
+                          </p>
+                          {testingRun?.setupSpecs.length ? (
+                            <ul className="mt-3 space-y-2 text-sm text-[var(--app-text-secondary)]">
+                              {testingRun.setupSpecs.map((spec) => (
+                                <li key={spec} className="font-mono text-xs">
+                                  {spec}
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="mt-3 text-sm text-[var(--app-muted)]">
+                              Setup specs were not detected in the terminal output.
+                            </p>
+                          )}
+                        </div>
+                        <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-elevated)] p-3">
+                          <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--app-subtle)]">
+                            Target spec
+                          </p>
+                          <p className="mt-3 font-mono text-sm text-[var(--app-text)]">
+                            {testingRun?.targetSpec ?? 'Not detected'}
+                          </p>
+                        </div>
+                        <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-elevated)] p-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--app-subtle)]">
+                              Cypress command
+                            </p>
+                            {testingRun?.command ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  void navigator.clipboard.writeText(testingRun.command ?? '')
+                                  setCopiedCommand(true)
+                                  window.setTimeout(() => setCopiedCommand(false), 1500)
+                                }}
+                                className="rounded-md border border-[var(--app-border)] bg-[var(--app-card)] px-2 py-1 text-[11px] font-medium text-[var(--app-text-secondary)] transition hover:border-[var(--app-accent)] hover:text-[var(--app-text)]"
+                              >
+                                {copiedCommand ? 'Copied' : 'Copy'}
+                              </button>
+                            ) : null}
+                          </div>
+                          {testingRun?.command ? (
+                            <pre className="mt-3 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-[var(--app-border)] bg-[var(--app-code-bg)] p-3 font-mono text-xs leading-relaxed text-[var(--app-text-secondary)]">
+                              <code>{testingRun.command}</code>
+                            </pre>
+                          ) : (
+                            <p className="mt-3 text-sm text-[var(--app-muted)]">
+                              The Cypress command was not found in the terminal output.
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {testingRun?.summary ? (
+                    <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-card)] p-4">
+                      <h3 className="text-xs font-medium uppercase tracking-wider text-[var(--app-muted)]">
+                        End-to-end test summary
+                      </h3>
+                      <div className="mt-4 grid gap-4 lg:grid-cols-4">
+                        <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-elevated)] p-3">
+                          <p className="text-[11px] uppercase tracking-wide text-[var(--app-subtle)]">
+                            Spec result
+                          </p>
+                          <p className="mt-2 text-lg font-semibold text-[var(--app-text)]">
+                            {testingRun.summary.failedSpecs} of {testingRun.summary.totalSpecs} failed
+                          </p>
+                        </div>
+                        <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-elevated)] p-3">
+                          <p className="text-[11px] uppercase tracking-wide text-[var(--app-subtle)]">
+                            Failure rate
+                          </p>
+                          <p className="mt-2 text-lg font-semibold text-rose-500">
+                            {testingRun.summary.failureRateLabel}
+                          </p>
+                        </div>
+                        <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-elevated)] p-3">
+                          <p className="text-[11px] uppercase tracking-wide text-[var(--app-subtle)]">
+                            Total checks
+                          </p>
+                          <p className="mt-2 text-lg font-semibold text-[var(--app-text)]">
+                            {testingRun.summary.totalTests}
+                          </p>
+                        </div>
+                        <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-elevated)] p-3">
+                          <p className="text-[11px] uppercase tracking-wide text-[var(--app-subtle)]">
+                            Total duration
+                          </p>
+                          <p className="mt-2 text-lg font-semibold text-[var(--app-text)]">
+                            {testingRun.summary.duration}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {testingRun?.failureHeadlines.length ? (
+                    <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-card)] p-4">
+                      <h3 className="text-xs font-medium uppercase tracking-wider text-[var(--app-muted)]">
+                        Failed checks seen in terminal output
+                      </h3>
+                      <div className="mt-3 space-y-2">
+                        {testingRun.failureHeadlines.map((item) => (
+                          <div
+                            key={item}
+                            className="rounded-lg border border-rose-500/20 bg-rose-500/8 p-3 text-sm leading-relaxed text-[var(--app-text-secondary)]"
+                          >
+                            {item}
+                          </div>
                         ))}
-                      </ul>
-                    ) : (
-                      <p className="mt-1 text-xs text-[var(--app-muted)]">
-                        No failing test names captured.
-                      </p>
-                    )}
-                  </div>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {testingRun?.specRuns.length ? (
+                    <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-card)] p-4">
+                      <h3 className="text-xs font-medium uppercase tracking-wider text-[var(--app-muted)]">
+                        Per-spec execution details
+                      </h3>
+                      <div className="mt-3 space-y-3">
+                        {testingRun.specRuns.map((specRun) => (
+                          <details
+                            key={`${specRun.spec}-${specRun.duration}`}
+                            className="overflow-hidden rounded-lg border border-[var(--app-border)] bg-[var(--app-elevated)] group"
+                          >
+                            <summary className="list-none cursor-pointer p-4 transition hover:bg-[var(--app-card)]">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className="font-mono text-xs text-[var(--app-text)]">
+                                    {specRun.spec}
+                                  </p>
+                                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                                    <span
+                                      className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${statusTone(specRun.status)}`}
+                                    >
+                                      {specRun.status}
+                                    </span>
+                                    <span className="inline-flex rounded-full border border-[var(--app-border)] bg-[var(--app-card)] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[var(--app-muted)]">
+                                      {formatDurationAsMs(specRun.duration)}
+                                    </span>
+                                  </div>
+                                </div>
+                                <ChevronDown
+                                  className="size-4 shrink-0 text-[var(--app-muted)] transition-transform duration-200 group-open:rotate-180"
+                                  aria-hidden
+                                />
+                              </div>
+                              <div className="mt-4 grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
+                                  <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-card)] px-3 py-2">
+                                    <p className="text-sm font-semibold text-emerald-500">
+                                      {specRun.passing}
+                                    </p>
+                                    <p className="mt-0.5 text-[11px] uppercase tracking-wide text-[var(--app-muted)]">
+                                      Passed
+                                    </p>
+                                  </div>
+                                  <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-card)] px-3 py-2">
+                                    <p className="text-sm font-semibold text-rose-500">{specRun.failing}</p>
+                                    <p className="mt-0.5 text-[11px] uppercase tracking-wide text-[var(--app-muted)]">
+                                      Failed
+                                    </p>
+                                  </div>
+                                  <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-card)] px-3 py-2">
+                                    <p className="text-sm font-semibold text-[var(--app-text)]">
+                                      {specRun.tests}
+                                    </p>
+                                    <p className="mt-0.5 text-[11px] uppercase tracking-wide text-[var(--app-muted)]">
+                                      Total checks
+                                    </p>
+                                  </div>
+                                  <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-card)] px-3 py-2">
+                                    <p className="text-sm font-semibold text-[var(--app-text)]">
+                                      {specRun.pending}
+                                    </p>
+                                    <p className="mt-0.5 text-[11px] uppercase tracking-wide text-[var(--app-muted)]">
+                                      Pending
+                                    </p>
+                                  </div>
+                                  <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-card)] px-3 py-2">
+                                    <p className="text-sm font-semibold text-[var(--app-text)]">
+                                      {specRun.skipped}
+                                    </p>
+                                    <p className="mt-0.5 text-[11px] uppercase tracking-wide text-[var(--app-muted)]">
+                                      Skipped
+                                    </p>
+                                  </div>
+                                  <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-card)] px-3 py-2">
+                                    <p className="text-sm font-semibold text-[var(--app-text)]">
+                                      {specRun.screenshots}
+                                    </p>
+                                    <p className="mt-0.5 text-[11px] uppercase tracking-wide text-[var(--app-muted)]">
+                                      Screenshots
+                                    </p>
+                                  </div>
+                              </div>
+                            </summary>
+                            <div className="border-t border-[var(--app-border)] p-4">
+                              <p className="text-sm leading-relaxed text-[var(--app-text-secondary)]">
+                                {specRun.failing > 0
+                                  ? `${specRun.failing} failure${specRun.failing === 1 ? '' : 's'} were recorded in this spec after ${specRun.passing} successful check${specRun.passing === 1 ? '' : 's'}.`
+                                  : `${specRun.passing} check${specRun.passing === 1 ? '' : 's'} completed successfully in this spec.`}
+                                {specRun.pending > 0
+                                  ? ` ${specRun.pending} check${specRun.pending === 1 ? '' : 's'} remained pending.`
+                                  : ''}
+                              </p>
+                              {specRun.suiteTitles.length ? (
+                                <div className="mt-4 rounded-lg border border-[var(--app-border)] bg-[var(--app-card)] p-3">
+                                  <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--app-subtle)]">
+                                    Test context
+                                  </p>
+                                  <div className="mt-2 space-y-1 text-sm text-[var(--app-text-secondary)]">
+                                    {specRun.suiteTitles.map((title) => (
+                                      <p key={title}>{title}</p>
+                                    ))}
+                                  </div>
+                                </div>
+                              ) : null}
+                            {specRun.passingNotes.length ? (
+                              <div className="mt-4 rounded-lg border border-[var(--app-border)] bg-[var(--app-card)] p-3">
+                                <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--app-subtle)]">
+                                  Successful checks seen in this spec
+                                </p>
+                                <div className="mt-2 space-y-1 text-sm text-[var(--app-text-secondary)]">
+                                  {specRun.passingNotes.map((note) => (
+                                    <p key={note}>{note}</p>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : null}
+                            {(specRun.videoEnabled !== null || specRun.videoOutput) ? (
+                              <div className="mt-4 rounded-lg border border-[var(--app-border)] bg-[var(--app-card)] p-3">
+                                <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--app-subtle)]">
+                                  Media output
+                                </p>
+                                <div className="mt-2 space-y-2 text-sm text-[var(--app-text-secondary)]">
+                                  {specRun.videoEnabled !== null ? (
+                                    <p>
+                                      <span className="font-medium text-[var(--app-text)]">Video:</span>{' '}
+                                      {specRun.videoEnabled ? 'enabled' : 'not generated'}
+                                    </p>
+                                  ) : null}
+                                  {specRun.videoOutput ? (
+                                    <p className="break-all">
+                                      <span className="font-medium text-[var(--app-text)]">Path:</span>{' '}
+                                      {specRun.videoOutput}
+                                    </p>
+                                  ) : null}
+                                </div>
+                              </div>
+                            ) : null}
+                            {(specRun.methods.length ||
+                              specRun.urls.length ||
+                              specRun.responseStatuses.length ||
+                              specRun.responseMessages.length) ? (
+                              <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                                <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-card)] p-3">
+                                  <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--app-subtle)]">
+                                    Request details
+                                  </p>
+                                  <div className="mt-2 space-y-2 text-sm text-[var(--app-text-secondary)]">
+                                    {specRun.methods.length ? (
+                                      <p>
+                                        <span className="font-medium text-[var(--app-text)]">Method:</span>{' '}
+                                        {specRun.methods.join(', ')}
+                                      </p>
+                                    ) : null}
+                                    {specRun.urls.length ? (
+                                      <p className="break-all">
+                                        <span className="font-medium text-[var(--app-text)]">URL:</span>{' '}
+                                        {specRun.urls[0]}
+                                        {specRun.urls.length > 1 ? ` (+${specRun.urls.length - 1} more)` : ''}
+                                      </p>
+                                    ) : null}
+                                  </div>
+                                </div>
+                                <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-card)] p-3">
+                                  <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--app-subtle)]">
+                                    Response details
+                                  </p>
+                                  <div className="mt-2 space-y-2 text-sm text-[var(--app-text-secondary)]">
+                                    {specRun.responseStatuses.length ? (
+                                      <p>
+                                        <span className="font-medium text-[var(--app-text)]">Status:</span>{' '}
+                                        {specRun.responseStatuses.join(', ')}
+                                      </p>
+                                    ) : null}
+                                    {specRun.responseMessages.length ? (
+                                      <p className="leading-relaxed">
+                                        <span className="font-medium text-[var(--app-text)]">Message:</span>{' '}
+                                        {specRun.responseMessages[0]}
+                                      </p>
+                                    ) : null}
+                                  </div>
+                                </div>
+                              </div>
+                            ) : null}
+                            {specRun.failureDetails.length ? (
+                              <div className="mt-4">
+                                <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--app-subtle)]">
+                                  Failure breakdown
+                                </p>
+                                <div className="mt-2 space-y-2">
+                                  {specRun.failureDetails.map((failure) => (
+                                    <div
+                                      key={`${failure.title}-${failure.url ?? ''}`}
+                                      className="rounded-md border border-rose-500/20 bg-rose-500/8 px-3 py-3"
+                                    >
+                                      <p className="text-sm font-medium text-[var(--app-text)]">
+                                        {failure.title}
+                                      </p>
+                                      <div className="mt-2 space-y-1 text-sm leading-relaxed text-[var(--app-text-secondary)]">
+                                        {failure.method ? (
+                                          <p>
+                                            <span className="font-medium text-[var(--app-text)]">Method:</span>{' '}
+                                            {failure.method}
+                                          </p>
+                                        ) : null}
+                                        {failure.url ? (
+                                          <p className="break-all">
+                                            <span className="font-medium text-[var(--app-text)]">URL:</span>{' '}
+                                            {failure.url}
+                                          </p>
+                                        ) : null}
+                                        {failure.status ? (
+                                          <p>
+                                            <span className="font-medium text-[var(--app-text)]">Failure:</span>{' '}
+                                            {failure.status}
+                                          </p>
+                                        ) : null}
+                                        {failure.message ? (
+                                          <p>
+                                            <span className="font-medium text-[var(--app-text)]">Message:</span>{' '}
+                                            {failure.message}
+                                          </p>
+                                        ) : null}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : null}
+                            {specRun.requestIds.length ? (
+                              <div className="mt-4 rounded-lg border border-[var(--app-border)] bg-[var(--app-card)] p-3">
+                                <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--app-subtle)]">
+                                  Request ids captured
+                                </p>
+                                <div className="mt-2 max-h-44 overflow-auto pr-1">
+                                  {specRun.requestIds.map((requestId) => (
+                                    <div
+                                      key={requestId}
+                                      className="font-mono text-xs leading-6 text-[var(--app-text-secondary)]"
+                                    >
+                                      {requestId}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : null}
+                            {specRun.stepNames.length ? (
+                              <div className="mt-4">
+                                <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--app-subtle)]">
+                                  Testing flow
+                                </p>
+                                <div className="mt-3 flex flex-wrap items-center gap-2">
+                                  {specRun.stepNames.map((step, index) => (
+                                    <Fragment key={step}>
+                                      <span className="rounded-lg border border-[var(--app-border)] bg-[var(--app-card)] px-3 py-2 text-xs font-medium text-[var(--app-text-secondary)]">
+                                        <span className="mr-2 inline-flex size-5 items-center justify-center rounded-full bg-[var(--app-accent-muted)] text-[10px] font-semibold text-[var(--app-accent)]">
+                                          {index + 1}
+                                        </span>
+                                        {step}
+                                      </span>
+                                      {index < specRun.stepNames.length - 1 ? (
+                                        <span className="text-[var(--app-muted)]">{'->'}</span>
+                                      ) : null}
+                                    </Fragment>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : null}
+                            {specRun.issueSnippets.length && !specRun.responseStatuses.length ? (
+                              <div className="mt-4">
+                                <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--app-subtle)]">
+                                  Key issues seen in this spec
+                                </p>
+                                <div className="mt-2 space-y-2">
+                                  {specRun.issueSnippets.map((issue) => (
+                                    <div
+                                      key={issue}
+                                      className="rounded-md border border-rose-500/20 bg-rose-500/8 px-3 py-2 text-sm leading-relaxed text-[var(--app-text-secondary)]"
+                                    >
+                                      {issue}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : null}
+                            {specRun.failedTests.length ? (
+                              <div className="mt-4">
+                                <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--app-subtle)]">
+                                  Failed test names
+                                </p>
+                                <div className="mt-2 space-y-2">
+                                  {specRun.failedTests.map((testName) => (
+                                    <div
+                                      key={testName}
+                                      className="rounded-md border border-[var(--app-border)] bg-[var(--app-card)] px-3 py-2 text-sm text-[var(--app-text-secondary)]"
+                                    >
+                                      {testName}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : null}
+                            </div>
+                          </details>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
                 </div>
               </CollapsibleSection>
             ) : null}
@@ -872,7 +1773,7 @@ export default function App() {
                     <h3 className="mb-4 text-sm font-semibold tracking-tight text-[var(--app-text)]">
                       Coverage run report
                     </h3>
-                    <CoverageReportHumanView report={run.coverageReport} />
+                    <CoverageReportHumanView run={run} />
                   </div>
                 </div>
               </CollapsibleSection>
@@ -880,10 +1781,10 @@ export default function App() {
 
             {activeTab === 'artifacts' ? (
               <>
-                <CollapsibleSection title="Run folder file structure" defaultOpen>
+                  <CollapsibleSection title="Generated files">
                   <ArtifactFilePanel text={run.outputTree?.join('\n')} />
                 </CollapsibleSection>
-                <CollapsibleSection title="Input (input.json file)" defaultOpen>
+                <CollapsibleSection title="Input (input.json file)">
                   <ArtifactFilePanel
                     text={
                       run.rawFiles['input.json']
@@ -901,7 +1802,7 @@ export default function App() {
                     }
                   />
                 </CollapsibleSection>
-                <CollapsibleSection title="Quali bot logs" defaultOpen>
+                <CollapsibleSection title="Quali bot logs">
                   <ArtifactFilePanel
                     text={
                       run.rawFiles['terminal_output.log'] ?? run.rawFiles['flow_pipeline.log']

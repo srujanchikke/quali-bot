@@ -14,6 +14,7 @@ export function PathFlowCodeCoverage({ run }: Props) {
         run.coverageReport,
         run.finalReport,
         run.rawFiles['line_hits.txt'],
+        run.rawFiles['lcov.info'],
       ),
     [run],
   )
@@ -22,16 +23,13 @@ export function PathFlowCodeCoverage({ run }: Props) {
     return (
       <div className="space-y-2 text-sm leading-relaxed text-[var(--app-muted)]">
         <p>
-          No embedded source on the path-flow chain. Add{' '}
+          No source could be prepared for the current path chain. The UI now tries to
+          build this from{' '}
           <code className="rounded-md bg-[var(--app-code-bg)] px-1.5 py-0.5 font-mono text-[11px] text-[var(--app-text-secondary)]">
-            path_flow.json
+            input.json
           </code>{' '}
-          or{' '}
-          <code className="rounded-md bg-[var(--app-code-bg)] px-1.5 py-0.5 font-mono text-[11px] text-[var(--app-text-secondary)]">
-            create_organization.json
-          </code>{' '}
-          (with <code className="font-mono text-[11px]">flows[].chain[].source</code>) under
-          this run folder so functions from the path can be listed here with LCOV-style hits.
+          plus the local source files in your `hyperswitch` checkout, but this run still
+          did not produce a usable code snippet.
         </p>
       </div>
     )
