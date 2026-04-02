@@ -23,6 +23,7 @@ Usage:
   python build_callgraph.py [path/to/index.scip]
 """
 
+import os
 import sys
 
 try:
@@ -37,9 +38,11 @@ from neo4j import GraphDatabase
 
 # ── Config ─────────────────────────────────────────────────────────────────────
 
-SCIP_PATH  = "index.scip"
-NEO4J_URI  = "bolt://localhost:7687"
-NEO4J_AUTH = ("neo4j", "Hyperswitch@123")
+SCIP_PATH = "index.scip"
+NEO4J_URI = os.environ.get("NEO4J_URI", "bolt://localhost:7687")
+NEO4J_USER = os.environ.get("NEO4J_USER", "neo4j")
+NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "Hyperswitch@123")
+NEO4J_AUTH = (NEO4J_USER, NEO4J_PASSWORD)
 
 # SCIP symbol_roles bit flags
 DEFINITION   = 1
