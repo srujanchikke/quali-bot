@@ -7,8 +7,10 @@ analyze_fn_v2.py — Three-layer flow coverage analysis. Run directly:
 import argparse, json, os, re, sys, urllib.request
 from neo4j import GraphDatabase
 
-NEO4J_URI  = "bolt://localhost:7687"
-NEO4J_AUTH = ("neo4j", "Hyperswitch@123")
+NEO4J_URI = os.environ.get("NEO4J_URI", "bolt://localhost:7687")
+NEO4J_USER = os.environ.get("NEO4J_USER", "neo4j")
+NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "Hyperswitch@123")
+NEO4J_AUTH = (NEO4J_USER, NEO4J_PASSWORD)
 
 # ── source reading ─────────────────────────────────────────────────────────────
 
