@@ -7,7 +7,1919 @@
   "def_line": 2129,
   "endpoint_count": 49,
   "flow_count": 7,
-  "endpoints": [],
+  "endpoints": [
+    {
+      "method": "GET",
+      "path": "/payments/redirect/{payment_id}/{merchant_id}/{attempt_id}",
+      "handler": "payments_start",
+      "call_chain": [
+        "payments_start",
+        "payments_core",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        }
+      ],
+      "depth": 4,
+      "specialization": {
+        "connector": "Authorize",
+        "trait": null,
+        "trait_args": [],
+        "method": null,
+        "specialization_key": "Authorize"
+      },
+      "connector_gate": "conditional \u2014 op=PaymentStart"
+    },
+    {
+      "method": "GET",
+      "path": "/payments/redirect/{payment_id}/{merchant_id}/{attempt_id}",
+      "handler": "payments_redirect_response_with_creds_identifier",
+      "call_chain": [
+        "payments_redirect_response_with_creds_identifier",
+        "PaymentRedirectFlow#handle_payments_redirect_response",
+        "PaymentAuthenticateCompleteAuthorize#PaymentRedirectFlow#call_payment_flow",
+        "payments_core",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        },
+        {
+          "at_hop": "PaymentAuthenticateCompleteAuthorize#PaymentRedirectFlow#call_payment_flow \u2192 payments_core",
+          "guard_type": "if",
+          "condition": "is_pull_mechanism_enabled\n            || authentication.authentication_type\n                != Some(common_enums::DecoupledAuthenticationType::Challenge)"
+        }
+      ],
+      "depth": 6,
+      "specialization": {
+        "connector": "Authorize",
+        "trait": null,
+        "trait_args": [],
+        "method": null,
+        "specialization_key": "Authorize"
+      },
+      "connector_gate": "conditional \u2014 op=PaymentRedirectSync"
+    },
+    {
+      "method": "GET",
+      "path": "/payments/redirect/{payment_id}/{merchant_id}/{attempt_id}",
+      "handler": "payments_redirect_response_with_creds_identifier",
+      "call_chain": [
+        "payments_redirect_response_with_creds_identifier",
+        "PaymentRedirectFlow#handle_payments_redirect_response",
+        "PaymentRedirectCompleteAuthorize#PaymentRedirectFlow#call_payment_flow",
+        "payments_core",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        }
+      ],
+      "depth": 6,
+      "specialization": {
+        "connector": "CompleteAuthorize",
+        "trait": null,
+        "trait_args": [],
+        "method": null,
+        "specialization_key": "CompleteAuthorize"
+      },
+      "connector_gate": "conditional \u2014 op=PaymentRedirectSync"
+    },
+    {
+      "method": "GET",
+      "path": "/payments/redirect/{payment_id}/{merchant_id}/{attempt_id}",
+      "handler": "payments_redirect_response_with_creds_identifier",
+      "call_chain": [
+        "payments_redirect_response_with_creds_identifier",
+        "PaymentRedirectFlow#handle_payments_redirect_response",
+        "PaymentRedirectSync#PaymentRedirectFlow#get_payment_action",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        }
+      ],
+      "depth": 5,
+      "specialization": {
+        "connector": "PSync",
+        "trait": null,
+        "trait_args": [],
+        "method": null,
+        "specialization_key": "PSync"
+      },
+      "connector_gate": "conditional \u2014 op=PaymentRedirectSync"
+    },
+    {
+      "method": "GET",
+      "path": "/payments/redirect/{payment_id}/{merchant_id}/{attempt_id}",
+      "handler": "payments_redirect_response_with_creds_identifier",
+      "call_chain": [
+        "payments_redirect_response_with_creds_identifier",
+        "PaymentRedirectFlow#handle_payments_redirect_response",
+        "PaymentRedirectSync#PaymentRedirectFlow#call_payment_flow",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        }
+      ],
+      "depth": 5,
+      "specialization": {
+        "connector": "PaymentRedirectSync",
+        "trait": "PaymentRedirectFlow",
+        "trait_args": [],
+        "method": "call_payment_flow",
+        "specialization_key": "PaymentRedirectFlow|PaymentRedirectSync||call_payment_flow"
+      },
+      "connector_gate": "conditional \u2014 op=PaymentRedirectSync"
+    },
+    {
+      "method": "GET",
+      "path": "/payments/redirect/{payment_id}/{merchant_id}/{attempt_id}",
+      "handler": "payments_start",
+      "call_chain": [
+        "payments_start",
+        "payments_core",
+        "payments_operation_core",
+        "post_payment_frm_core",
+        "FraudCheckPost#Domain#execute_post_tasks",
+        "payments_core",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        },
+        {
+          "at_hop": "FraudCheckPost#Domain#execute_post_tasks \u2192 payments_core",
+          "guard_type": "if",
+          "condition": "matches!(frm_data.fraud_check.frm_status, FraudCheckStatus::Fraud)\n            && matches!(\n                frm_data.fraud_check.last_step,\n                FraudCheckLastStep::CheckoutOrSale\n            )"
+        },
+        {
+          "at_hop": "post_payment_frm_core \u2192 FraudCheckPost#Domain#execute_post_tasks",
+          "guard_type": "if_let",
+          "condition": "let Some(frm_router_data) = frm_router_data_opt"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 post_payment_frm_core",
+          "guard_type": "if_let",
+          "condition": "let Some(fraud_info) = &mut frm_info"
+        }
+      ],
+      "depth": 8,
+      "specialization": {
+        "connector": "Void",
+        "trait": null,
+        "trait_args": [],
+        "method": null,
+        "specialization_key": "Void"
+      },
+      "connector_gate": "conditional \u2014 op=PaymentStart"
+    },
+    {
+      "method": "POST",
+      "path": "/payments/session_tokens",
+      "handler": "payments_connector_session",
+      "call_chain": [
+        "payments_connector_session",
+        "payments_core",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        }
+      ],
+      "depth": 4,
+      "specialization": {
+        "connector": "Session",
+        "trait": null,
+        "trait_args": [],
+        "method": null,
+        "specialization_key": "Session"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/payments/session_tokens",
+      "handler": "payments_connector_session",
+      "call_chain": [
+        "payments_connector_session",
+        "payments_core",
+        "payments_operation_core",
+        "post_payment_frm_core",
+        "FraudCheckPost#Domain#execute_post_tasks",
+        "payments_core",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        },
+        {
+          "at_hop": "FraudCheckPost#Domain#execute_post_tasks \u2192 payments_core",
+          "guard_type": "if",
+          "condition": "matches!(frm_data.fraud_check.frm_status, FraudCheckStatus::Fraud)\n            && matches!(\n                frm_data.fraud_check.last_step,\n                FraudCheckLastStep::CheckoutOrSale\n            )"
+        },
+        {
+          "at_hop": "post_payment_frm_core \u2192 FraudCheckPost#Domain#execute_post_tasks",
+          "guard_type": "if_let",
+          "condition": "let Some(frm_router_data) = frm_router_data_opt"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 post_payment_frm_core",
+          "guard_type": "if_let",
+          "condition": "let Some(fraud_info) = &mut frm_info"
+        }
+      ],
+      "depth": 8,
+      "specialization": {
+        "connector": "Void",
+        "trait": null,
+        "trait_args": [],
+        "method": null,
+        "specialization_key": "Void"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/payments/sync",
+      "handler": "payments_retrieve_with_gateway_creds",
+      "call_chain": [
+        "payments_retrieve_with_gateway_creds",
+        "payments_core",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        }
+      ],
+      "depth": 4,
+      "specialization": {
+        "connector": "PSync",
+        "trait": null,
+        "trait_args": [],
+        "method": null,
+        "specialization_key": "PSync"
+      },
+      "connector_gate": "conditional \u2014 op=PaymentStatus"
+    },
+    {
+      "method": "POST",
+      "path": "/payments/sync",
+      "handler": "payments_retrieve_with_gateway_creds",
+      "call_chain": [
+        "payments_retrieve_with_gateway_creds",
+        "payments_core",
+        "payments_operation_core",
+        "post_payment_frm_core",
+        "FraudCheckPost#Domain#execute_post_tasks",
+        "payments_core",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        },
+        {
+          "at_hop": "FraudCheckPost#Domain#execute_post_tasks \u2192 payments_core",
+          "guard_type": "if",
+          "condition": "matches!(frm_data.fraud_check.frm_status, FraudCheckStatus::Fraud)\n            && matches!(\n                frm_data.fraud_check.last_step,\n                FraudCheckLastStep::CheckoutOrSale\n            )"
+        },
+        {
+          "at_hop": "post_payment_frm_core \u2192 FraudCheckPost#Domain#execute_post_tasks",
+          "guard_type": "if_let",
+          "condition": "let Some(frm_router_data) = frm_router_data_opt"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 post_payment_frm_core",
+          "guard_type": "if_let",
+          "condition": "let Some(fraud_info) = &mut frm_info"
+        }
+      ],
+      "depth": 8,
+      "specialization": {
+        "connector": "Void",
+        "trait": null,
+        "trait_args": [],
+        "method": null,
+        "specialization_key": "Void"
+      },
+      "connector_gate": "conditional \u2014 op=PaymentStatus"
+    },
+    {
+      "method": "GET",
+      "path": "/payments/{payment_id}",
+      "handler": "payments_retrieve",
+      "call_chain": [
+        "payments_retrieve",
+        "payments_core",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        }
+      ],
+      "depth": 4,
+      "specialization": {
+        "connector": "PSync",
+        "trait": null,
+        "trait_args": [],
+        "method": null,
+        "specialization_key": "PSync"
+      },
+      "connector_gate": "conditional \u2014 op=PaymentStatus"
+    },
+    {
+      "method": "GET",
+      "path": "/payments/{payment_id}",
+      "handler": "payments_retrieve",
+      "call_chain": [
+        "payments_retrieve",
+        "payments_core",
+        "payments_operation_core",
+        "post_payment_frm_core",
+        "FraudCheckPost#Domain#execute_post_tasks",
+        "payments_core",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        },
+        {
+          "at_hop": "FraudCheckPost#Domain#execute_post_tasks \u2192 payments_core",
+          "guard_type": "if",
+          "condition": "matches!(frm_data.fraud_check.frm_status, FraudCheckStatus::Fraud)\n            && matches!(\n                frm_data.fraud_check.last_step,\n                FraudCheckLastStep::CheckoutOrSale\n            )"
+        },
+        {
+          "at_hop": "post_payment_frm_core \u2192 FraudCheckPost#Domain#execute_post_tasks",
+          "guard_type": "if_let",
+          "condition": "let Some(frm_router_data) = frm_router_data_opt"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 post_payment_frm_core",
+          "guard_type": "if_let",
+          "condition": "let Some(fraud_info) = &mut frm_info"
+        }
+      ],
+      "depth": 8,
+      "specialization": {
+        "connector": "Void",
+        "trait": null,
+        "trait_args": [],
+        "method": null,
+        "specialization_key": "Void"
+      },
+      "connector_gate": "conditional \u2014 op=PaymentStatus"
+    },
+    {
+      "method": "POST",
+      "path": "/payments/{payment_id}/approve",
+      "handler": "payments_approve",
+      "call_chain": [
+        "payments_approve",
+        "payments_core",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        }
+      ],
+      "depth": 4,
+      "specialization": {
+        "connector": "Capture",
+        "trait": null,
+        "trait_args": [],
+        "method": null,
+        "specialization_key": "Capture"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/payments/{payment_id}/approve",
+      "handler": "payments_approve",
+      "call_chain": [
+        "payments_approve",
+        "payments_core",
+        "payments_operation_core",
+        "post_payment_frm_core",
+        "FraudCheckPost#Domain#execute_post_tasks",
+        "payments_core",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        },
+        {
+          "at_hop": "FraudCheckPost#Domain#execute_post_tasks \u2192 payments_core",
+          "guard_type": "if",
+          "condition": "matches!(frm_data.fraud_check.frm_status, FraudCheckStatus::Fraud)\n            && matches!(\n                frm_data.fraud_check.last_step,\n                FraudCheckLastStep::CheckoutOrSale\n            )"
+        },
+        {
+          "at_hop": "post_payment_frm_core \u2192 FraudCheckPost#Domain#execute_post_tasks",
+          "guard_type": "if_let",
+          "condition": "let Some(frm_router_data) = frm_router_data_opt"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 post_payment_frm_core",
+          "guard_type": "if_let",
+          "condition": "let Some(fraud_info) = &mut frm_info"
+        }
+      ],
+      "depth": 8,
+      "specialization": {
+        "connector": "Void",
+        "trait": null,
+        "trait_args": [],
+        "method": null,
+        "specialization_key": "Void"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/payments/{payment_id}/calculate_tax",
+      "handler": "payments_dynamic_tax_calculation",
+      "call_chain": [
+        "payments_dynamic_tax_calculation",
+        "payments_core",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        }
+      ],
+      "depth": 4,
+      "specialization": {
+        "connector": "SdkSessionUpdate",
+        "trait": null,
+        "trait_args": [],
+        "method": null,
+        "specialization_key": "SdkSessionUpdate"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/payments/{payment_id}/calculate_tax",
+      "handler": "payments_dynamic_tax_calculation",
+      "call_chain": [
+        "payments_dynamic_tax_calculation",
+        "payments_core",
+        "payments_operation_core",
+        "post_payment_frm_core",
+        "FraudCheckPost#Domain#execute_post_tasks",
+        "payments_core",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        },
+        {
+          "at_hop": "FraudCheckPost#Domain#execute_post_tasks \u2192 payments_core",
+          "guard_type": "if",
+          "condition": "matches!(frm_data.fraud_check.frm_status, FraudCheckStatus::Fraud)\n            && matches!(\n                frm_data.fraud_check.last_step,\n                FraudCheckLastStep::CheckoutOrSale\n            )"
+        },
+        {
+          "at_hop": "post_payment_frm_core \u2192 FraudCheckPost#Domain#execute_post_tasks",
+          "guard_type": "if_let",
+          "condition": "let Some(frm_router_data) = frm_router_data_opt"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 post_payment_frm_core",
+          "guard_type": "if_let",
+          "condition": "let Some(fraud_info) = &mut frm_info"
+        }
+      ],
+      "depth": 8,
+      "specialization": {
+        "connector": "Void",
+        "trait": null,
+        "trait_args": [],
+        "method": null,
+        "specialization_key": "Void"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/payments/{payment_id}/cancel",
+      "handler": "payments_cancel",
+      "call_chain": [
+        "payments_cancel",
+        "payments_core",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        }
+      ],
+      "depth": 4,
+      "specialization": {
+        "connector": "Void",
+        "trait": null,
+        "trait_args": [],
+        "method": null,
+        "specialization_key": "Void"
+      },
+      "connector_gate": "conditional \u2014 op=PaymentCancel"
+    },
+    {
+      "method": "POST",
+      "path": "/payments/{payment_id}/cancel_post_capture",
+      "handler": "payments_cancel_post_capture",
+      "call_chain": [
+        "payments_cancel_post_capture",
+        "payments_core",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        }
+      ],
+      "depth": 4,
+      "specialization": {
+        "connector": "PostCaptureVoid",
+        "trait": null,
+        "trait_args": [],
+        "method": null,
+        "specialization_key": "PostCaptureVoid"
+      },
+      "connector_gate": "conditional \u2014 op=PaymentCancelPostCapture"
+    },
+    {
+      "method": "POST",
+      "path": "/payments/{payment_id}/cancel_post_capture",
+      "handler": "payments_cancel_post_capture",
+      "call_chain": [
+        "payments_cancel_post_capture",
+        "payments_core",
+        "payments_operation_core",
+        "post_payment_frm_core",
+        "FraudCheckPost#Domain#execute_post_tasks",
+        "payments_core",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        },
+        {
+          "at_hop": "FraudCheckPost#Domain#execute_post_tasks \u2192 payments_core",
+          "guard_type": "if",
+          "condition": "matches!(frm_data.fraud_check.frm_status, FraudCheckStatus::Fraud)\n            && matches!(\n                frm_data.fraud_check.last_step,\n                FraudCheckLastStep::CheckoutOrSale\n            )"
+        },
+        {
+          "at_hop": "post_payment_frm_core \u2192 FraudCheckPost#Domain#execute_post_tasks",
+          "guard_type": "if_let",
+          "condition": "let Some(frm_router_data) = frm_router_data_opt"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 post_payment_frm_core",
+          "guard_type": "if_let",
+          "condition": "let Some(fraud_info) = &mut frm_info"
+        }
+      ],
+      "depth": 8,
+      "specialization": {
+        "connector": "Void",
+        "trait": null,
+        "trait_args": [],
+        "method": null,
+        "specialization_key": "Void"
+      },
+      "connector_gate": "conditional \u2014 op=PaymentCancelPostCapture"
+    },
+    {
+      "method": "POST",
+      "path": "/payments/{payment_id}/capture",
+      "handler": "payments_capture",
+      "call_chain": [
+        "payments_capture",
+        "payments_core",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        }
+      ],
+      "depth": 4,
+      "specialization": {
+        "connector": "Capture",
+        "trait": null,
+        "trait_args": [],
+        "method": null,
+        "specialization_key": "Capture"
+      },
+      "connector_gate": "conditional \u2014 op=PaymentCapture"
+    },
+    {
+      "method": "POST",
+      "path": "/payments/{payment_id}/capture",
+      "handler": "payments_capture",
+      "call_chain": [
+        "payments_capture",
+        "payments_core",
+        "payments_operation_core",
+        "post_payment_frm_core",
+        "FraudCheckPost#Domain#execute_post_tasks",
+        "payments_core",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        },
+        {
+          "at_hop": "FraudCheckPost#Domain#execute_post_tasks \u2192 payments_core",
+          "guard_type": "if",
+          "condition": "matches!(frm_data.fraud_check.frm_status, FraudCheckStatus::Fraud)\n            && matches!(\n                frm_data.fraud_check.last_step,\n                FraudCheckLastStep::CheckoutOrSale\n            )"
+        },
+        {
+          "at_hop": "post_payment_frm_core \u2192 FraudCheckPost#Domain#execute_post_tasks",
+          "guard_type": "if_let",
+          "condition": "let Some(frm_router_data) = frm_router_data_opt"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 post_payment_frm_core",
+          "guard_type": "if_let",
+          "condition": "let Some(fraud_info) = &mut frm_info"
+        }
+      ],
+      "depth": 8,
+      "specialization": {
+        "connector": "Void",
+        "trait": null,
+        "trait_args": [],
+        "method": null,
+        "specialization_key": "Void"
+      },
+      "connector_gate": "conditional \u2014 op=PaymentCapture"
+    },
+    {
+      "method": "POST",
+      "path": "/payments/{payment_id}/complete_authorize",
+      "handler": "payments_complete_authorize",
+      "call_chain": [
+        "payments_complete_authorize",
+        "payments_core",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        }
+      ],
+      "depth": 4,
+      "specialization": {
+        "connector": "CompleteAuthorize",
+        "trait": null,
+        "trait_args": [],
+        "method": null,
+        "specialization_key": "CompleteAuthorize"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/payments/{payment_id}/complete_authorize",
+      "handler": "payments_complete_authorize",
+      "call_chain": [
+        "payments_complete_authorize",
+        "payments_core",
+        "payments_operation_core",
+        "post_payment_frm_core",
+        "FraudCheckPost#Domain#execute_post_tasks",
+        "payments_core",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        },
+        {
+          "at_hop": "FraudCheckPost#Domain#execute_post_tasks \u2192 payments_core",
+          "guard_type": "if",
+          "condition": "matches!(frm_data.fraud_check.frm_status, FraudCheckStatus::Fraud)\n            && matches!(\n                frm_data.fraud_check.last_step,\n                FraudCheckLastStep::CheckoutOrSale\n            )"
+        },
+        {
+          "at_hop": "post_payment_frm_core \u2192 FraudCheckPost#Domain#execute_post_tasks",
+          "guard_type": "if_let",
+          "condition": "let Some(frm_router_data) = frm_router_data_opt"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 post_payment_frm_core",
+          "guard_type": "if_let",
+          "condition": "let Some(fraud_info) = &mut frm_info"
+        }
+      ],
+      "depth": 8,
+      "specialization": {
+        "connector": "Void",
+        "trait": null,
+        "trait_args": [],
+        "method": null,
+        "specialization_key": "Void"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/payments/{payment_id}/confirm",
+      "handler": "payments_confirm",
+      "call_chain": [
+        "payments_confirm",
+        "authorize_verify_select",
+        "payments_core",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        },
+        {
+          "at_hop": "authorize_verify_select \u2192 payments_core",
+          "guard_type": "match",
+          "condition": "req.payment_type.unwrap_or_default()"
+        }
+      ],
+      "depth": 5,
+      "specialization": {
+        "connector": "Authorize",
+        "trait": null,
+        "trait_args": [],
+        "method": null,
+        "specialization_key": "Authorize"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/payments/{payment_id}/extend_authorization",
+      "handler": "payments_extend_authorization",
+      "call_chain": [
+        "payments_extend_authorization",
+        "payments_core",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        }
+      ],
+      "depth": 4,
+      "specialization": {
+        "connector": "ExtendAuthorization",
+        "trait": null,
+        "trait_args": [],
+        "method": null,
+        "specialization_key": "ExtendAuthorization"
+      },
+      "connector_gate": "conditional \u2014 op=PaymentExtendAuthorization"
+    },
+    {
+      "method": "POST",
+      "path": "/payments/{payment_id}/extend_authorization",
+      "handler": "payments_extend_authorization",
+      "call_chain": [
+        "payments_extend_authorization",
+        "payments_core",
+        "payments_operation_core",
+        "post_payment_frm_core",
+        "FraudCheckPost#Domain#execute_post_tasks",
+        "payments_core",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        },
+        {
+          "at_hop": "FraudCheckPost#Domain#execute_post_tasks \u2192 payments_core",
+          "guard_type": "if",
+          "condition": "matches!(frm_data.fraud_check.frm_status, FraudCheckStatus::Fraud)\n            && matches!(\n                frm_data.fraud_check.last_step,\n                FraudCheckLastStep::CheckoutOrSale\n            )"
+        },
+        {
+          "at_hop": "post_payment_frm_core \u2192 FraudCheckPost#Domain#execute_post_tasks",
+          "guard_type": "if_let",
+          "condition": "let Some(frm_router_data) = frm_router_data_opt"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 post_payment_frm_core",
+          "guard_type": "if_let",
+          "condition": "let Some(fraud_info) = &mut frm_info"
+        }
+      ],
+      "depth": 8,
+      "specialization": {
+        "connector": "Void",
+        "trait": null,
+        "trait_args": [],
+        "method": null,
+        "specialization_key": "Void"
+      },
+      "connector_gate": "conditional \u2014 op=PaymentExtendAuthorization"
+    },
+    {
+      "method": "POST",
+      "path": "/payments/{payment_id}/incremental_authorization",
+      "handler": "payments_incremental_authorization",
+      "call_chain": [
+        "payments_incremental_authorization",
+        "payments_core",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        }
+      ],
+      "depth": 4,
+      "specialization": {
+        "connector": "IncrementalAuthorization",
+        "trait": null,
+        "trait_args": [],
+        "method": null,
+        "specialization_key": "IncrementalAuthorization"
+      },
+      "connector_gate": "conditional \u2014 op=PaymentIncrementalAuthorization"
+    },
+    {
+      "method": "POST",
+      "path": "/payments/{payment_id}/incremental_authorization",
+      "handler": "payments_incremental_authorization",
+      "call_chain": [
+        "payments_incremental_authorization",
+        "payments_core",
+        "payments_operation_core",
+        "post_payment_frm_core",
+        "FraudCheckPost#Domain#execute_post_tasks",
+        "payments_core",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        },
+        {
+          "at_hop": "FraudCheckPost#Domain#execute_post_tasks \u2192 payments_core",
+          "guard_type": "if",
+          "condition": "matches!(frm_data.fraud_check.frm_status, FraudCheckStatus::Fraud)\n            && matches!(\n                frm_data.fraud_check.last_step,\n                FraudCheckLastStep::CheckoutOrSale\n            )"
+        },
+        {
+          "at_hop": "post_payment_frm_core \u2192 FraudCheckPost#Domain#execute_post_tasks",
+          "guard_type": "if_let",
+          "condition": "let Some(frm_router_data) = frm_router_data_opt"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 post_payment_frm_core",
+          "guard_type": "if_let",
+          "condition": "let Some(fraud_info) = &mut frm_info"
+        }
+      ],
+      "depth": 8,
+      "specialization": {
+        "connector": "Void",
+        "trait": null,
+        "trait_args": [],
+        "method": null,
+        "specialization_key": "Void"
+      },
+      "connector_gate": "conditional \u2014 op=PaymentIncrementalAuthorization"
+    },
+    {
+      "method": "POST",
+      "path": "/payments/{payment_id}/post_session_tokens",
+      "handler": "payments_post_session_tokens",
+      "call_chain": [
+        "payments_post_session_tokens",
+        "payments_core",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        }
+      ],
+      "depth": 4,
+      "specialization": {
+        "connector": "PostSessionTokens",
+        "trait": null,
+        "trait_args": [],
+        "method": null,
+        "specialization_key": "PostSessionTokens"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/payments/{payment_id}/post_session_tokens",
+      "handler": "payments_post_session_tokens",
+      "call_chain": [
+        "payments_post_session_tokens",
+        "payments_core",
+        "payments_operation_core",
+        "post_payment_frm_core",
+        "FraudCheckPost#Domain#execute_post_tasks",
+        "payments_core",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        },
+        {
+          "at_hop": "FraudCheckPost#Domain#execute_post_tasks \u2192 payments_core",
+          "guard_type": "if",
+          "condition": "matches!(frm_data.fraud_check.frm_status, FraudCheckStatus::Fraud)\n            && matches!(\n                frm_data.fraud_check.last_step,\n                FraudCheckLastStep::CheckoutOrSale\n            )"
+        },
+        {
+          "at_hop": "post_payment_frm_core \u2192 FraudCheckPost#Domain#execute_post_tasks",
+          "guard_type": "if_let",
+          "condition": "let Some(frm_router_data) = frm_router_data_opt"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 post_payment_frm_core",
+          "guard_type": "if_let",
+          "condition": "let Some(fraud_info) = &mut frm_info"
+        }
+      ],
+      "depth": 8,
+      "specialization": {
+        "connector": "Void",
+        "trait": null,
+        "trait_args": [],
+        "method": null,
+        "specialization_key": "Void"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/payments/{payment_id}/reject",
+      "handler": "payments_reject",
+      "call_chain": [
+        "payments_reject",
+        "payments_core",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        }
+      ],
+      "depth": 4,
+      "specialization": {
+        "connector": "Void",
+        "trait": null,
+        "trait_args": [],
+        "method": null,
+        "specialization_key": "Void"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/payments/{payment_id}/update_metadata",
+      "handler": "payments_update_metadata",
+      "call_chain": [
+        "payments_update_metadata",
+        "payments_core",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        }
+      ],
+      "depth": 4,
+      "specialization": {
+        "connector": "UpdateMetadata",
+        "trait": null,
+        "trait_args": [],
+        "method": null,
+        "specialization_key": "UpdateMetadata"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/payments/{payment_id}/update_metadata",
+      "handler": "payments_update_metadata",
+      "call_chain": [
+        "payments_update_metadata",
+        "payments_core",
+        "payments_operation_core",
+        "post_payment_frm_core",
+        "FraudCheckPost#Domain#execute_post_tasks",
+        "payments_core",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        },
+        {
+          "at_hop": "FraudCheckPost#Domain#execute_post_tasks \u2192 payments_core",
+          "guard_type": "if",
+          "condition": "matches!(frm_data.fraud_check.frm_status, FraudCheckStatus::Fraud)\n            && matches!(\n                frm_data.fraud_check.last_step,\n                FraudCheckLastStep::CheckoutOrSale\n            )"
+        },
+        {
+          "at_hop": "post_payment_frm_core \u2192 FraudCheckPost#Domain#execute_post_tasks",
+          "guard_type": "if_let",
+          "condition": "let Some(frm_router_data) = frm_router_data_opt"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 post_payment_frm_core",
+          "guard_type": "if_let",
+          "condition": "let Some(fraud_info) = &mut frm_info"
+        }
+      ],
+      "depth": 8,
+      "specialization": {
+        "connector": "Void",
+        "trait": null,
+        "trait_args": [],
+        "method": null,
+        "specialization_key": "Void"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/payments/{payment_id}/{merchant_id}/authorize/{connector}",
+      "handler": "post_3ds_payments_authorize",
+      "call_chain": [
+        "post_3ds_payments_authorize",
+        "PaymentRedirectFlow#handle_payments_redirect_response",
+        "PaymentAuthenticateCompleteAuthorize#PaymentRedirectFlow#call_payment_flow",
+        "payments_core",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        },
+        {
+          "at_hop": "PaymentAuthenticateCompleteAuthorize#PaymentRedirectFlow#call_payment_flow \u2192 payments_core",
+          "guard_type": "if",
+          "condition": "is_pull_mechanism_enabled\n            || authentication.authentication_type\n                != Some(common_enums::DecoupledAuthenticationType::Challenge)"
+        }
+      ],
+      "depth": 6,
+      "specialization": {
+        "connector": "Authorize",
+        "trait": null,
+        "trait_args": [],
+        "method": null,
+        "specialization_key": "Authorize"
+      },
+      "connector_gate": "conditional \u2014 op=PaymentAuthenticateCompleteAuthorize"
+    },
+    {
+      "method": "POST",
+      "path": "/payments/{payment_id}/{merchant_id}/authorize/{connector}",
+      "handler": "post_3ds_payments_authorize",
+      "call_chain": [
+        "post_3ds_payments_authorize",
+        "PaymentRedirectFlow#handle_payments_redirect_response",
+        "PaymentRedirectCompleteAuthorize#PaymentRedirectFlow#call_payment_flow",
+        "payments_core",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        }
+      ],
+      "depth": 6,
+      "specialization": {
+        "connector": "CompleteAuthorize",
+        "trait": null,
+        "trait_args": [],
+        "method": null,
+        "specialization_key": "CompleteAuthorize"
+      },
+      "connector_gate": "conditional \u2014 op=PaymentAuthenticateCompleteAuthorize"
+    },
+    {
+      "method": "POST",
+      "path": "/payments/{payment_id}/{merchant_id}/authorize/{connector}",
+      "handler": "post_3ds_payments_authorize",
+      "call_chain": [
+        "post_3ds_payments_authorize",
+        "PaymentRedirectFlow#handle_payments_redirect_response",
+        "PaymentRedirectSync#PaymentRedirectFlow#get_payment_action",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        }
+      ],
+      "depth": 5,
+      "specialization": {
+        "connector": "PSync",
+        "trait": null,
+        "trait_args": [],
+        "method": null,
+        "specialization_key": "PSync"
+      },
+      "connector_gate": "conditional \u2014 op=PaymentAuthenticateCompleteAuthorize"
+    },
+    {
+      "method": "POST",
+      "path": "/payments/{payment_id}/{merchant_id}/authorize/{connector}",
+      "handler": "post_3ds_payments_authorize",
+      "call_chain": [
+        "post_3ds_payments_authorize",
+        "PaymentRedirectFlow#handle_payments_redirect_response",
+        "PaymentRedirectSync#PaymentRedirectFlow#call_payment_flow",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        }
+      ],
+      "depth": 5,
+      "specialization": {
+        "connector": "PaymentRedirectSync",
+        "trait": "PaymentRedirectFlow",
+        "trait_args": [],
+        "method": "call_payment_flow",
+        "specialization_key": "PaymentRedirectFlow|PaymentRedirectSync||call_payment_flow"
+      },
+      "connector_gate": "conditional \u2014 op=PaymentAuthenticateCompleteAuthorize"
+    },
+    {
+      "method": "GET",
+      "path": "/payments/{payment_id}/{merchant_id}/redirect/complete/{connector}",
+      "handler": "payments_complete_authorize_redirect",
+      "call_chain": [
+        "payments_complete_authorize_redirect",
+        "PaymentRedirectFlow#handle_payments_redirect_response",
+        "PaymentAuthenticateCompleteAuthorize#PaymentRedirectFlow#call_payment_flow",
+        "payments_core",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        },
+        {
+          "at_hop": "PaymentAuthenticateCompleteAuthorize#PaymentRedirectFlow#call_payment_flow \u2192 payments_core",
+          "guard_type": "if",
+          "condition": "is_pull_mechanism_enabled\n            || authentication.authentication_type\n                != Some(common_enums::DecoupledAuthenticationType::Challenge)"
+        }
+      ],
+      "depth": 6,
+      "specialization": {
+        "connector": "Authorize",
+        "trait": null,
+        "trait_args": [],
+        "method": null,
+        "specialization_key": "Authorize"
+      },
+      "connector_gate": "conditional \u2014 op=PaymentRedirectCompleteAuthorize"
+    },
+    {
+      "method": "GET",
+      "path": "/payments/{payment_id}/{merchant_id}/redirect/complete/{connector}",
+      "handler": "payments_complete_authorize_redirect",
+      "call_chain": [
+        "payments_complete_authorize_redirect",
+        "PaymentRedirectFlow#handle_payments_redirect_response",
+        "PaymentRedirectCompleteAuthorize#PaymentRedirectFlow#call_payment_flow",
+        "payments_core",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        }
+      ],
+      "depth": 6,
+      "specialization": {
+        "connector": "CompleteAuthorize",
+        "trait": null,
+        "trait_args": [],
+        "method": null,
+        "specialization_key": "CompleteAuthorize"
+      },
+      "connector_gate": "conditional \u2014 op=PaymentRedirectCompleteAuthorize"
+    },
+    {
+      "method": "GET",
+      "path": "/payments/{payment_id}/{merchant_id}/redirect/complete/{connector}",
+      "handler": "payments_complete_authorize_redirect",
+      "call_chain": [
+        "payments_complete_authorize_redirect",
+        "PaymentRedirectFlow#handle_payments_redirect_response",
+        "PaymentRedirectSync#PaymentRedirectFlow#get_payment_action",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        }
+      ],
+      "depth": 5,
+      "specialization": {
+        "connector": "PSync",
+        "trait": null,
+        "trait_args": [],
+        "method": null,
+        "specialization_key": "PSync"
+      },
+      "connector_gate": "conditional \u2014 op=PaymentRedirectCompleteAuthorize"
+    },
+    {
+      "method": "GET",
+      "path": "/payments/{payment_id}/{merchant_id}/redirect/complete/{connector}",
+      "handler": "payments_complete_authorize_redirect",
+      "call_chain": [
+        "payments_complete_authorize_redirect",
+        "PaymentRedirectFlow#handle_payments_redirect_response",
+        "PaymentRedirectSync#PaymentRedirectFlow#call_payment_flow",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        }
+      ],
+      "depth": 5,
+      "specialization": {
+        "connector": "PaymentRedirectSync",
+        "trait": "PaymentRedirectFlow",
+        "trait_args": [],
+        "method": "call_payment_flow",
+        "specialization_key": "PaymentRedirectFlow|PaymentRedirectSync||call_payment_flow"
+      },
+      "connector_gate": "conditional \u2014 op=PaymentRedirectCompleteAuthorize"
+    },
+    {
+      "method": "GET",
+      "path": "/payments/{payment_id}/{merchant_id}/redirect/complete/{connector}/{creds_identifier}",
+      "handler": "payments_complete_authorize_redirect_with_creds_identifier",
+      "call_chain": [
+        "payments_complete_authorize_redirect_with_creds_identifier",
+        "PaymentRedirectFlow#handle_payments_redirect_response",
+        "PaymentAuthenticateCompleteAuthorize#PaymentRedirectFlow#call_payment_flow",
+        "payments_core",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        },
+        {
+          "at_hop": "PaymentAuthenticateCompleteAuthorize#PaymentRedirectFlow#call_payment_flow \u2192 payments_core",
+          "guard_type": "if",
+          "condition": "is_pull_mechanism_enabled\n            || authentication.authentication_type\n                != Some(common_enums::DecoupledAuthenticationType::Challenge)"
+        }
+      ],
+      "depth": 6,
+      "specialization": {
+        "connector": "Authorize",
+        "trait": null,
+        "trait_args": [],
+        "method": null,
+        "specialization_key": "Authorize"
+      },
+      "connector_gate": "conditional \u2014 op=PaymentRedirectCompleteAuthorize"
+    },
+    {
+      "method": "GET",
+      "path": "/payments/{payment_id}/{merchant_id}/redirect/complete/{connector}/{creds_identifier}",
+      "handler": "payments_complete_authorize_redirect_with_creds_identifier",
+      "call_chain": [
+        "payments_complete_authorize_redirect_with_creds_identifier",
+        "PaymentRedirectFlow#handle_payments_redirect_response",
+        "PaymentRedirectCompleteAuthorize#PaymentRedirectFlow#call_payment_flow",
+        "payments_core",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        }
+      ],
+      "depth": 6,
+      "specialization": {
+        "connector": "CompleteAuthorize",
+        "trait": null,
+        "trait_args": [],
+        "method": null,
+        "specialization_key": "CompleteAuthorize"
+      },
+      "connector_gate": "conditional \u2014 op=PaymentRedirectCompleteAuthorize"
+    },
+    {
+      "method": "GET",
+      "path": "/payments/{payment_id}/{merchant_id}/redirect/complete/{connector}/{creds_identifier}",
+      "handler": "payments_complete_authorize_redirect_with_creds_identifier",
+      "call_chain": [
+        "payments_complete_authorize_redirect_with_creds_identifier",
+        "PaymentRedirectFlow#handle_payments_redirect_response",
+        "PaymentRedirectSync#PaymentRedirectFlow#get_payment_action",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        }
+      ],
+      "depth": 5,
+      "specialization": {
+        "connector": "PSync",
+        "trait": null,
+        "trait_args": [],
+        "method": null,
+        "specialization_key": "PSync"
+      },
+      "connector_gate": "conditional \u2014 op=PaymentRedirectCompleteAuthorize"
+    },
+    {
+      "method": "GET",
+      "path": "/payments/{payment_id}/{merchant_id}/redirect/complete/{connector}/{creds_identifier}",
+      "handler": "payments_complete_authorize_redirect_with_creds_identifier",
+      "call_chain": [
+        "payments_complete_authorize_redirect_with_creds_identifier",
+        "PaymentRedirectFlow#handle_payments_redirect_response",
+        "PaymentRedirectSync#PaymentRedirectFlow#call_payment_flow",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        }
+      ],
+      "depth": 5,
+      "specialization": {
+        "connector": "PaymentRedirectSync",
+        "trait": "PaymentRedirectFlow",
+        "trait_args": [],
+        "method": "call_payment_flow",
+        "specialization_key": "PaymentRedirectFlow|PaymentRedirectSync||call_payment_flow"
+      },
+      "connector_gate": "conditional \u2014 op=PaymentRedirectCompleteAuthorize"
+    },
+    {
+      "method": "GET",
+      "path": "/payments/{payment_id}/{merchant_id}/redirect/response/{connector}",
+      "handler": "payments_redirect_response",
+      "call_chain": [
+        "payments_redirect_response",
+        "PaymentRedirectFlow#handle_payments_redirect_response",
+        "PaymentAuthenticateCompleteAuthorize#PaymentRedirectFlow#call_payment_flow",
+        "payments_core",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        },
+        {
+          "at_hop": "PaymentAuthenticateCompleteAuthorize#PaymentRedirectFlow#call_payment_flow \u2192 payments_core",
+          "guard_type": "if",
+          "condition": "is_pull_mechanism_enabled\n            || authentication.authentication_type\n                != Some(common_enums::DecoupledAuthenticationType::Challenge)"
+        }
+      ],
+      "depth": 6,
+      "specialization": {
+        "connector": "Authorize",
+        "trait": null,
+        "trait_args": [],
+        "method": null,
+        "specialization_key": "Authorize"
+      },
+      "connector_gate": "conditional \u2014 op=PaymentRedirectSync"
+    },
+    {
+      "method": "GET",
+      "path": "/payments/{payment_id}/{merchant_id}/redirect/response/{connector}",
+      "handler": "payments_redirect_response",
+      "call_chain": [
+        "payments_redirect_response",
+        "PaymentRedirectFlow#handle_payments_redirect_response",
+        "PaymentRedirectCompleteAuthorize#PaymentRedirectFlow#call_payment_flow",
+        "payments_core",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        }
+      ],
+      "depth": 6,
+      "specialization": {
+        "connector": "CompleteAuthorize",
+        "trait": null,
+        "trait_args": [],
+        "method": null,
+        "specialization_key": "CompleteAuthorize"
+      },
+      "connector_gate": "conditional \u2014 op=PaymentRedirectSync"
+    },
+    {
+      "method": "GET",
+      "path": "/payments/{payment_id}/{merchant_id}/redirect/response/{connector}",
+      "handler": "payments_redirect_response",
+      "call_chain": [
+        "payments_redirect_response",
+        "PaymentRedirectFlow#handle_payments_redirect_response",
+        "PaymentRedirectSync#PaymentRedirectFlow#get_payment_action",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        }
+      ],
+      "depth": 5,
+      "specialization": {
+        "connector": "PSync",
+        "trait": null,
+        "trait_args": [],
+        "method": null,
+        "specialization_key": "PSync"
+      },
+      "connector_gate": "conditional \u2014 op=PaymentRedirectSync"
+    },
+    {
+      "method": "GET",
+      "path": "/payments/{payment_id}/{merchant_id}/redirect/response/{connector}",
+      "handler": "payments_redirect_response",
+      "call_chain": [
+        "payments_redirect_response",
+        "PaymentRedirectFlow#handle_payments_redirect_response",
+        "PaymentRedirectSync#PaymentRedirectFlow#call_payment_flow",
+        "payments_operation_core",
+        "get_connector_data_with_routing_decision",
+        "get_connector_with_networks"
+      ],
+      "guards": [
+        {
+          "at_hop": "get_connector_data_with_routing_decision \u2192 get_connector_with_networks",
+          "guard_type": "if_let",
+          "condition": "let Some((data, card_network)) = get_connector_with_networks(connectors)"
+        },
+        {
+          "at_hop": "payments_operation_core \u2192 get_connector_data_with_routing_decision",
+          "guard_type": "match",
+          "condition": "connector_details"
+        }
+      ],
+      "depth": 5,
+      "specialization": {
+        "connector": "PaymentRedirectSync",
+        "trait": "PaymentRedirectFlow",
+        "trait_args": [],
+        "method": "call_payment_flow",
+        "specialization_key": "PaymentRedirectFlow|PaymentRedirectSync||call_payment_flow"
+      },
+      "connector_gate": "conditional \u2014 op=PaymentRedirectSync"
+    }
+  ],
   "reachability_matrix": [
     {
       "modified_function": "get_connector_with_networks",

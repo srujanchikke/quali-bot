@@ -90,7 +90,9 @@ def cmd_query(args: argparse.Namespace) -> None:
 
     backend = args.backend
     if backend == "auto":
-        if os.environ.get("ANTHROPIC_API_KEY"):
+        if os.environ.get("JUSPAY_API_KEY"):
+            backend = "grid"
+        elif os.environ.get("ANTHROPIC_API_KEY"):
             backend = "anthropic"
         elif os.environ.get("GROQ_API_KEY"):
             backend = "groq"
@@ -98,7 +100,7 @@ def cmd_query(args: argparse.Namespace) -> None:
             backend = "gemini"
         else:
             print(
-                "\n  [enrich] No API key found (ANTHROPIC_API_KEY / GROQ_API_KEY / GEMINI_API_KEY)."
+                "\n  [enrich] No API key found (JUSPAY_API_KEY / ANTHROPIC_API_KEY / GROQ_API_KEY / GEMINI_API_KEY)."
                 " Skipping LLM enrichment. Set a key or pass --backend ollama to enrich.",
                 file=sys.stderr,
             )
@@ -201,11 +203,11 @@ def main() -> None:
     p_query.add_argument(
         "--backend",
         default="auto",
-        choices=["auto", "anthropic", "groq", "gemini", "ollama"],
+        choices=["auto", "grid", "anthropic", "groq", "gemini", "ollama"],
         help=(
             "LLM backend for enrichment (default: auto — picks from available API keys). "
-            "Set ANTHROPIC_API_KEY / GROQ_API_KEY / GEMINI_API_KEY, or use --backend ollama "
-            "for a local model."
+            "Set JUSPAY_API_KEY for Grid/open-large, ANTHROPIC_API_KEY / GROQ_API_KEY / "
+            "GEMINI_API_KEY, or use --backend ollama for a local model."
         ),
     )
 

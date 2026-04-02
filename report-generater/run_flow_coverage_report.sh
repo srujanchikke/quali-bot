@@ -18,10 +18,6 @@ set -euo pipefail
 #   BUILD_INSTRUMENTED_ROUTER - If 1, rebuild router with LLVM instrumentation before run
 #   BASE_URL           - Router base URL (default: http://localhost:8080; use "localhost" for Cypress)
 #   HEALTH_PATH        - Health check path; if unset, tries /health (v1) then /v2/health (v2-only)
-#   CHANGED_FUNCTION   - Function name to query impact for (triggers hs_indexer Step 1)
-#   SCIP_FILE          - Path to index.scip file (default: ${HYPERSWITCH_ROOT}/index.scip)
-#   SKIP_SCIP          - If 1, skip running rust-analyzer scip (reuse existing index.scip)
-#   SKIP_INDEX         - If 1, skip loading index.scip into Neo4j (reuse existing graph)
 #
 # Cypress note: hyperswitch cypress-tests use the v1 admin API (/accounts, /account/...).
 # The router must be a v1 build (e.g. `just run` / default features), not v2-only (`just run_v2`).
@@ -36,10 +32,6 @@ HYPERSWITCH_ROOT="${HYPERSWITCH_ROOT:-${HOME}/hyperswitch}"
 CYPRESS_TESTS_ROOT="${CYPRESS_TESTS_ROOT:-${HYPERSWITCH_ROOT}/cypress-tests}"
 # Prefer explicit CYPRESS_REPO when set (alternate clone path); else use CYPRESS_TESTS_ROOT.
 CYPRESS_REPO_RESOLVED="${CYPRESS_REPO:-${CYPRESS_TESTS_ROOT}}"
-CHANGED_FUNCTION="${CHANGED_FUNCTION:-}"
-SCIP_FILE="${SCIP_FILE:-${HYPERSWITCH_ROOT}/index.scip}"
-SKIP_SCIP="${SKIP_SCIP:-0}"
-SKIP_INDEX="${SKIP_INDEX:-0}"
 FLOW_JSON="${FLOW_JSON:-${PROJECT_ROOT}/testing_agent/input.json}"
 SKIP_RUN="${SKIP_RUN:-0}"
 BUILD_INSTRUMENTED_ROUTER="${BUILD_INSTRUMENTED_ROUTER:-0}"
@@ -122,53 +114,10 @@ if [[ ! -d "${HYPERSWITCH_ROOT}/crates" ]]; then
   exit 1
 fi
 
-# ============================================================================
-# Step 1: Run hs_indexer — index Hyperswitch and query impact for changed function
-# ============================================================================
-
-if [[ -n "${CHANGED_FUNCTION}" ]]; then
-  if [[ "${SKIP_SCIP}" != "1" ]]; then
-    sep "Step 1a: Generating index.scip via rust-analyzer"
-    require_cmd rust-analyzer
-    echo "  Running: rust-analyzer scip . (in ${HYPERSWITCH_ROOT})"
-    echo "  This can take several minutes on first run."
-    (cd "${HYPERSWITCH_ROOT}" && rust-analyzer scip .)
-    echo "  index.scip written to: ${SCIP_FILE}"
-  else
-    sep "Step 1a: Skipping SCIP generation (SKIP_SCIP=1)"
-    if [[ ! -f "${SCIP_FILE}" ]]; then
-      echo "ERROR: index.scip not found: ${SCIP_FILE}" >&2
-      echo "  Run without SKIP_SCIP=1 to generate it, or set SCIP_FILE to an existing one." >&2
-      exit 1
-    fi
-    echo "  Reusing existing index.scip: ${SCIP_FILE}"
-  fi
-
-  if [[ "${SKIP_INDEX}" != "1" ]]; then
-    sep "Step 1b: Loading call graph into Neo4j from index.scip"
-    (cd "${PROJECT_ROOT}" && python3 -m hs_indexer --src-root "${HYPERSWITCH_ROOT}" index --scip "${SCIP_FILE}")
-  else
-    sep "Step 1b: Skipping Neo4j load (SKIP_INDEX=1)"
-  fi
-
-  sep "Step 1c: Querying impact for changed function: ${CHANGED_FUNCTION}"
-  (cd "${PROJECT_ROOT}" && python3 -m hs_indexer --src-root "${HYPERSWITCH_ROOT}" query "${CHANGED_FUNCTION}" --out "${FLOW_JSON}")
-
-  if [[ ! -f "${FLOW_JSON}" ]]; then
-    echo "ERROR: hs_indexer did not produce output at ${FLOW_JSON}" >&2
-    exit 1
-  fi
-  echo "  Flow JSON written to: ${FLOW_JSON}"
-else
-  sep "Step 1: Skipping hs_indexer (CHANGED_FUNCTION not set)"
-  if [[ ! -f "${FLOW_JSON}" ]]; then
-    echo "ERROR: Flow JSON not found: ${FLOW_JSON}" >&2
-    exit 1
-  fi
-  echo "  Using provided FLOW_JSON: ${FLOW_JSON}"
+if [[ ! -f "${FLOW_JSON}" ]]; then
+  echo "ERROR: Flow JSON not found: ${FLOW_JSON}" >&2
+  exit 1
 fi
-
-cp "${FLOW_JSON}" "${INPUT_JSON_COPY}"
 
 # Extract flow info for logging
 FLOW_ID="$(python3 - "${FLOW_JSON}" <<'PY'
@@ -231,13 +180,11 @@ echo "  Target leaf     : ${TARGET_LEAF}"
 echo "  Hyperswitch     : ${HYPERSWITCH_ROOT}"
 echo "  Cypress tests   : ${CYPRESS_REPO_RESOLVED}"
 echo "  Flow JSON       : ${FLOW_JSON}"
-echo "  SCIP file       : ${SCIP_FILE}"
-echo "  CHANGED_FUNCTION: ${CHANGED_FUNCTION:-<not set — skipped hs_indexer>}"
 echo "  Output dir      : ${OUT_DIR}"
 echo "============================================================"
 
 # ============================================================================
-# Step 2: Start hyperswitch router with LLVM coverage
+# Step 1: Start hyperswitch router with LLVM coverage
 # ============================================================================
 
 BASE_URL="${BASE_URL:-http://localhost:8080}"
@@ -358,7 +305,7 @@ PY
   echo "  Router is healthy at ${HEALTH_URL:-${BASE_URL%/}${HEALTH_PATH}}"
 
   # ============================================================================
-  # Step 3: Run testing_agent flow pipeline
+  # Step 2: Run testing_agent flow pipeline
   # ============================================================================
 
   sep "Running flow pipeline"
@@ -379,7 +326,7 @@ PY
   echo "  Flow pipeline completed"
 
   # ============================================================================
-  # Step 4: Parse cypress output for request IDs
+  # Step 3: Parse cypress output for request IDs
   # ============================================================================
 
   sep "Parsing cypress output"
@@ -400,7 +347,7 @@ PY
   echo "  Request IDs found: ${REQUEST_IDS:-none}"
 
   # ============================================================================
-  # Step 5: Stop router to flush .profraw
+  # Step 4: Stop router to flush .profraw
   # ============================================================================
 
   sep "Stopping router to flush .profraw"
@@ -409,7 +356,7 @@ PY
 fi
 
 # ============================================================================
-# Step 6: Verify profraw files exist
+# Step 5: Verify profraw files exist
 # ============================================================================
 
 PROFRAW_COUNT="$(python3 - "${PROFRAW_DIR}" <<'PY'
@@ -450,7 +397,7 @@ if [[ "${COVERAGE_AVAILABLE:-1}" == "1" ]]; then
 fi
 
 # ============================================================================
-# Step 7: Generate coverage HTML + lcov
+# Step 6: Generate coverage HTML + lcov
 # ============================================================================
 
 # Determine llvm-path for grcov
@@ -491,7 +438,7 @@ if [[ "${COVERAGE_AVAILABLE:-1}" == "1" ]]; then
   echo "  HTML: ${HTML_DIR}"
 
   # ============================================================================
-  # Step 8: Generate path-flow diff + line hits
+  # Step 7: Generate path-flow diff + line hits
   # ============================================================================
   sep "Generating path-flow diff + line hits"
   python3 "${RG_ROOT}/coverage_feedback_loop.py" \
@@ -519,7 +466,7 @@ EOF
 fi
 
 # ============================================================================
-# Step 9: Generate final RCA report
+# Step 8: Generate final RCA report
 # ============================================================================
 
 sep "Generating final RCA report"
@@ -538,7 +485,7 @@ python3 "${RG_ROOT}/generate_final_report.py" \
   --out "${FINAL_REPORT_JSON}"
 
 # ============================================================================
-# Step 10: Generate run summary
+# Step 9: Generate run summary
 # ============================================================================
 
 cat > "${OUT_DIR}/run_summary.txt" <<EOF

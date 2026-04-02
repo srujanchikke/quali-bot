@@ -56,6 +56,7 @@ _DEFAULT_MODELS = {
     "gemini":    "gemini-2.0-flash",
     "ollama":    "llama3.1",
     "anthropic": "claude-opus-4-6",
+    "grid":      "claude-sonnet-4-6",
 }
 
 
@@ -417,6 +418,40 @@ def _call_ollama(prompt: str, model: str, base_url: str) -> str:
     return data.get("response", "")
 
 
+def _call_grid(prompt: str, model: str) -> str:
+    import urllib.request as _urlreq
+    import urllib.error   as _urlerr
+    api_key = os.environ.get("JUSPAY_API_KEY", "")
+    if not api_key:
+        raise RuntimeError("JUSPAY_API_KEY environment variable is not set.")
+    payload = json.dumps({
+        "model":       model,
+        "max_tokens":  16000,
+        "messages":    [{"role": "user", "content": prompt}],
+        "temperature": 0.2,
+    }).encode()
+    req = _urlreq.Request(
+        "https://grid.ai.juspay.net/v1/chat/completions",
+        data=payload,
+        headers={
+            "Content-Type":  "application/json",
+            "Authorization": f"Bearer {api_key}",
+        },
+        method="POST",
+    )
+    try:
+        with _urlreq.urlopen(req, timeout=600) as resp:
+            data = json.loads(resp.read())
+        import re as _re
+        text = data["choices"][0]["message"]["content"]
+        text = _re.sub(r"^```(?:json)?\s*", "", text.strip())
+        text = _re.sub(r"\s*```$", "", text.strip())
+        return text
+    except _urlerr.HTTPError as e:
+        body = e.read().decode(errors="replace")
+        raise RuntimeError(f"Grid API error {e.code}: {body}") from e
+
+
 def _call_anthropic(prompt: str, model: str) -> str:
     import anthropic as _anthropic
     api_key = os.environ.get("ANTHROPIC_API_KEY", "")
@@ -448,6 +483,8 @@ def enrich_flow(impact: dict, flow: dict, backend: str, model: str,
         raw = _call_ollama(prompt, model, ollama_url)
     elif backend == "anthropic":
         raw = _call_anthropic(prompt, model)
+    elif backend == "grid":
+        raw = _call_grid(prompt, model)
     else:
         raise ValueError(f"Unknown backend: {backend!r}")
 
@@ -468,7 +505,7 @@ def main() -> None:
     ap.add_argument("--flow",    type=int, default=None, help="Enrich only this flow_id")
     ap.add_argument(
         "--backend", default="groq",
-        choices=["groq", "gemini", "ollama", "anthropic"],
+        choices=["groq", "gemini", "ollama", "anthropic", "grid"],
         help="LLM backend to use (default: groq)",
     )
     ap.add_argument("--model",        default=None,
