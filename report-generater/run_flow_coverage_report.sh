@@ -20,7 +20,8 @@ set -euo pipefail
 #   HEALTH_PATH        - Health check path; if unset, tries /health (v1) then /v2/health (v2-only)
 #   CHANGED_FUNCTION   - Function name to query impact for (triggers hs_indexer Step 1)
 #   SCIP_FILE          - Path to index.scip file (default: ${HYPERSWITCH_ROOT}/index.scip)
-#   SKIP_INDEX         - If 1, skip the SCIP indexing phase and reuse the existing Neo4j graph
+#   SKIP_SCIP          - If 1, skip running rust-analyzer scip (reuse existing index.scip)
+#   SKIP_INDEX         - If 1, skip loading index.scip into Neo4j (reuse existing graph)
 #
 # Cypress note: hyperswitch cypress-tests use the v1 admin API (/accounts, /account/...).
 # The router must be a v1 build (e.g. `just run` / default features), not v2-only (`just run_v2`).
@@ -37,6 +38,7 @@ CYPRESS_TESTS_ROOT="${CYPRESS_TESTS_ROOT:-${HYPERSWITCH_ROOT}/cypress-tests}"
 CYPRESS_REPO_RESOLVED="${CYPRESS_REPO:-${CYPRESS_TESTS_ROOT}}"
 CHANGED_FUNCTION="${CHANGED_FUNCTION:-}"
 SCIP_FILE="${SCIP_FILE:-${HYPERSWITCH_ROOT}/index.scip}"
+SKIP_SCIP="${SKIP_SCIP:-0}"
 SKIP_INDEX="${SKIP_INDEX:-0}"
 FLOW_JSON="${FLOW_JSON:-${PROJECT_ROOT}/testing_agent/input.json}"
 SKIP_RUN="${SKIP_RUN:-0}"
@@ -125,20 +127,31 @@ fi
 # ============================================================================
 
 if [[ -n "${CHANGED_FUNCTION}" ]]; then
-  if [[ "${SKIP_INDEX}" != "1" ]]; then
-    sep "Step 1a: Building Neo4j call graph from index.scip"
+  if [[ "${SKIP_SCIP}" != "1" ]]; then
+    sep "Step 1a: Generating index.scip via rust-analyzer"
+    require_cmd rust-analyzer
+    echo "  Running: rust-analyzer scip . (in ${HYPERSWITCH_ROOT})"
+    echo "  This can take several minutes on first run."
+    (cd "${HYPERSWITCH_ROOT}" && rust-analyzer scip .)
+    echo "  index.scip written to: ${SCIP_FILE}"
+  else
+    sep "Step 1a: Skipping SCIP generation (SKIP_SCIP=1)"
     if [[ ! -f "${SCIP_FILE}" ]]; then
       echo "ERROR: index.scip not found: ${SCIP_FILE}" >&2
-      echo "  Generate it with (from hyperswitch root): rust-analyzer scip ." >&2
-      echo "  Or set SCIP_FILE, or set SKIP_INDEX=1 to reuse an existing Neo4j graph." >&2
+      echo "  Run without SKIP_SCIP=1 to generate it, or set SCIP_FILE to an existing one." >&2
       exit 1
     fi
-    (cd "${PROJECT_ROOT}" && python3 -m hs_indexer --src-root "${HYPERSWITCH_ROOT}" index --scip "${SCIP_FILE}")
-  else
-    sep "Step 1a: Skipping index phase (SKIP_INDEX=1)"
+    echo "  Reusing existing index.scip: ${SCIP_FILE}"
   fi
 
-  sep "Step 1b: Querying impact for changed function: ${CHANGED_FUNCTION}"
+  if [[ "${SKIP_INDEX}" != "1" ]]; then
+    sep "Step 1b: Loading call graph into Neo4j from index.scip"
+    (cd "${PROJECT_ROOT}" && python3 -m hs_indexer --src-root "${HYPERSWITCH_ROOT}" index --scip "${SCIP_FILE}")
+  else
+    sep "Step 1b: Skipping Neo4j load (SKIP_INDEX=1)"
+  fi
+
+  sep "Step 1c: Querying impact for changed function: ${CHANGED_FUNCTION}"
   (cd "${PROJECT_ROOT}" && python3 -m hs_indexer --src-root "${HYPERSWITCH_ROOT}" query "${CHANGED_FUNCTION}" --out "${FLOW_JSON}")
 
   if [[ ! -f "${FLOW_JSON}" ]]; then
