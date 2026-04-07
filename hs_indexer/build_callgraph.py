@@ -23,7 +23,6 @@ Usage:
   python build_callgraph.py [path/to/index.scip]
 """
 
-import os
 import sys
 
 try:
@@ -34,22 +33,19 @@ except ImportError:
     except ImportError:
         import scip_pb2
 
-from neo4j import GraphDatabase
+from hs_indexer.config import cfg
+from hs_indexer.db import get_driver
 
 # ── Config ─────────────────────────────────────────────────────────────────────
 
-SCIP_PATH = "index.scip"
-NEO4J_URI = os.environ.get("NEO4J_URI", "bolt://localhost:7687")
-NEO4J_USER = os.environ.get("NEO4J_USER", "neo4j")
-NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "Hyperswitch@123")
-NEO4J_AUTH = (NEO4J_USER, NEO4J_PASSWORD)
+SCIP_PATH = cfg.indexing.scip_path
 
 # SCIP symbol_roles bit flags
 DEFINITION   = 1
 WRITE_ACCESS = 4
 READ_ACCESS  = 8
 
-BATCH_SIZE = 5_000
+BATCH_SIZE = cfg.indexing.callgraph_batch_size
 
 
 # ── Step 1: Parse index.scip ───────────────────────────────────────────────────
@@ -218,7 +214,7 @@ def load_into_neo4j(nodes: dict, raw_edges: list):
     unique_edges = list(seen.values())
 
     # ── Load ──────────────────────────────────────────────────────────────────
-    driver = GraphDatabase.driver(NEO4J_URI, auth=NEO4J_AUTH)
+    driver = get_driver()
 
     with driver.session() as s:
         print("  clearing existing graph …")

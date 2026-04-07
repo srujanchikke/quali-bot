@@ -46,6 +46,11 @@ OUT_JSON="${OUT_JSON:-${PROJECT_ROOT}/testing_agent/input.json}"
 SKIP_SCIP="${SKIP_SCIP:-0}"
 DEPTH="${DEPTH:-12}"
 BACKEND="${BACKEND:-auto}"
+# Grid model overrides (both passed via env so config.py picks them up)
+# Set GRID_MODEL to any model name, e.g: kimi-latest, glm-latest, claude-sonnet-4-6
+# Set GRID_FALLBACK_MODEL to use when the primary hits a budget limit
+GRID_MODEL="${GRID_MODEL:-}"
+GRID_FALLBACK_MODEL="${GRID_FALLBACK_MODEL:-}"
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 sep() { echo ""; echo "==> $*"; }
@@ -231,11 +236,20 @@ fi
 # ── Step 2: False-positive filter ─────────────────────────────────────────────
 sep "Step 2/3: Filtering false positives (endpoints + flows)"
 if [[ -n "${JUSPAY_API_KEY:-}" ]]; then
-  echo "  Using Grid API (claude-sonnet-4-6) to classify endpoints …"
-  (cd "${PROJECT_ROOT}" && python3 -m hs_indexer.filter_false_positives \
-    --input    "${RAW_JSON}" \
-    --src-root "${HYPERSWITCH_ROOT}" \
-    --out      "${FILTERED_JSON}")
+  _filter_model_label="${GRID_MODEL:-default}"
+  echo "  Using Grid API (model: ${_filter_model_label}) to classify endpoints …"
+  if [[ -n "${GRID_MODEL:-}" ]]; then
+    (cd "${PROJECT_ROOT}" && python3 -m hs_indexer.filter_false_positives \
+      --input    "${RAW_JSON}" \
+      --src-root "${HYPERSWITCH_ROOT}" \
+      --out      "${FILTERED_JSON}" \
+      --model    "${GRID_MODEL}")
+  else
+    (cd "${PROJECT_ROOT}" && python3 -m hs_indexer.filter_false_positives \
+      --input    "${RAW_JSON}" \
+      --src-root "${HYPERSWITCH_ROOT}" \
+      --out      "${FILTERED_JSON}")
+  fi
   if [[ ! -f "${FILTERED_JSON}" ]]; then
     echo "  WARNING: filter step produced no output — using raw" >&2
     cp "${RAW_JSON}" "${FILTERED_JSON}"

@@ -29,30 +29,27 @@ Usage:
   SRC_ROOT=/path/to/hyperswitch .venv/bin/python3 build_trait_map.py
 """
 
-import json
 import os
 import re
 import sys
 from collections import defaultdict
 from pathlib import Path
 
-from neo4j import GraphDatabase
 from tree_sitter import Language, Parser, Node as TSNode
 import tree_sitter_rust as _tsrust
 
+from hs_indexer.config import cfg
+from hs_indexer.db import get_driver
+
 # ── Config ─────────────────────────────────────────────────────────────────────
 
-NEO4J_URI = os.environ.get("NEO4J_URI", "bolt://localhost:7687")
-NEO4J_USER = os.environ.get("NEO4J_USER", "neo4j")
-NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "Hyperswitch@123")
-NEO4J_AUTH = (NEO4J_USER, NEO4J_PASSWORD)
-BATCH_SIZE = 1_000
+BATCH_SIZE = cfg.indexing.trait_map_batch_size
 
 _TS_RUST_LANG = Language(_tsrust.language())
 _ts_parser    = Parser(_TS_RUST_LANG)
 
 # Directories to skip entirely
-_SKIP_DIRS = {"target", ".git", "node_modules"}
+_SKIP_DIRS = set(cfg.indexing.skip_dirs)
 
 # ── Tree-sitter helpers ────────────────────────────────────────────────────────
 
@@ -1092,7 +1089,7 @@ def main(src_root: str | None = None) -> None:
         print("Error: set SRC_ROOT to the hyperswitch repo root.", file=sys.stderr)
         sys.exit(1)
 
-    driver = GraphDatabase.driver(NEO4J_URI, auth=NEO4J_AUTH)
+    driver = get_driver()
 
     print("[1/5] Scanning impl blocks …", file=sys.stderr)
     impl_records = collect_all_impls(root)

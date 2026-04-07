@@ -49,7 +49,10 @@ import sys
 from collections import deque
 from dataclasses import dataclass
 
-from neo4j import GraphDatabase
+from tree_sitter import Language, Parser, Node as TSNode
+import tree_sitter_rust as _tsrust
+
+from hs_indexer.db import get_driver
 
 
 # ── Specialization constraint ─────────────────────────────────────────────────
@@ -102,9 +105,18 @@ class SpecConstraint:
             method     = self.method     or other.method,
         )
 
-    def to_dict(self) -> dict:
+    def to_dict(self, known_connectors: frozenset = frozenset()) -> dict:
+        # Use "connector" key only when impl_type is a known real connector.
+        # Falls back to trait name check if known_connectors is not provided.
+        # This prevents framework structs like "PaymentResponse" from being
+        # labelled as connectors and causing downstream tools to look for
+        # non-existent PaymentResponse.js Cypress config files.
+        if known_connectors:
+            is_connector = self.impl_type in known_connectors
+        else:
+            is_connector = self.trait_name == "ConnectorIntegration"
         return {
-            "connector":          self.impl_type,
+            "connector" if is_connector else "impl_type": self.impl_type,
             "trait":              self.trait_name,
             "trait_args":         list(self.trait_args),
             "method":             self.method,
@@ -388,14 +400,6 @@ def extract_handler_op_type(
             first_fallback = name          # data struct — keep as last resort
     return first_fallback
 
-# ── Config ─────────────────────────────────────────────────────────────────────
-
-NEO4J_URI = os.environ.get("NEO4J_URI", "bolt://localhost:7687")
-NEO4J_USER = os.environ.get("NEO4J_USER", "neo4j")
-NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "Hyperswitch@123")
-NEO4J_AUTH = (NEO4J_USER, NEO4J_PASSWORD)
-
-
 # ── Step 1: Tag endpoint handlers in Neo4j ────────────────────────────────────
 
 def _parse_routes_app(filepath: str) -> list[dict]:
@@ -652,9 +656,6 @@ def load_trait_map(driver) -> dict:
 
 
 # ── Step 3: Trait dispatch — structural analysis (Tree-sitter) ────────────────
-
-from tree_sitter import Language, Parser, Node as TSNode
-import tree_sitter_rust as _tsrust
 
 _TS_RUST_LANG = Language(_tsrust.language())
 _ts_parser    = Parser(_TS_RUST_LANG)
@@ -1125,13 +1126,20 @@ def bfs_upward(
                     if constraint_type not in concrete_types_step_a:
                         continue
                     # (b) Step B check: does this handler actually use that Op type?
-                    op_type = _get_op_type(
-                        info.get("name", ""),
-                        info.get("file", ""),
-                        info.get("def_line", 1),
-                    )
-                    if op_type is not None and op_type != constraint_type:
-                        continue
+                    # Only applies for known connector types (Adyen, Stripe, etc.).
+                    # Non-connector concrete types like "PaymentResponse" are framework
+                    # structs — extract_handler_op_type returns payment operation type
+                    # names (PaymentsAuthorize, PaymentConfirm, …) not struct names,
+                    # so comparing against a non-connector type always mismatches and
+                    # incorrectly drops every endpoint.
+                    if constraint_type in _known_connector_types:
+                        op_type = _get_op_type(
+                            info.get("name", ""),
+                            info.get("file", ""),
+                            info.get("def_line", 1),
+                        )
+                        if op_type is not None and op_type != constraint_type:
+                            continue
 
                 ep_dict = {
                     "method":     info.get("http_method", "?"),
@@ -1144,7 +1152,7 @@ def bfs_upward(
                 }
                 # Attach full specialization context when available
                 if effective_spec and effective_spec.spec_key():
-                    ep_dict["specialization"] = effective_spec.to_dict()
+                    ep_dict["specialization"] = effective_spec.to_dict(_known_connector_types)
                 feasible, reason = check_path_feasibility(new_guards)
                 if not feasible:
                     ep_dict["infeasible_reason"] = reason
@@ -1224,26 +1232,33 @@ def resolve_seed_from_location(
 # FLOW BUILDER LAYER  ── new output shape built on top of BFS results
 # ══════════════════════════════════════════════════════════════════════════════
 
-import importlib.util as _ilu
+# ── Source reading helpers ────────────────────────────────────────────────────
 
-# Lazy-load analyze_fn_v2.py helpers (classify, find_fn_start, find_call_site,
-# get_connectors, read_file) so we don't duplicate them.
-_ANALYZE_MOD = None
+def _read_file(src_root: str, filepath: str) -> list[str]:
+    """Read a source file relative to src_root and return its lines."""
+    if not src_root or not filepath:
+        return []
+    try:
+        with open(os.path.join(src_root, filepath.lstrip("/")), errors="replace") as f:
+            return f.readlines()
+    except OSError:
+        return []
 
-def _get_analyze():
-    global _ANALYZE_MOD
-    if _ANALYZE_MOD is None:
-        here = os.path.dirname(os.path.abspath(__file__))
-        path = os.path.join(here, "analyze_fn_v2.py")
-        if os.path.exists(path):
-            spec_ = _ilu.spec_from_file_location("_analyze_fn_v2", path)
-            mod   = _ilu.module_from_spec(spec_)
-            try:
-                spec_.loader.exec_module(mod)
-                _ANALYZE_MOD = mod
-            except Exception:
-                pass
-    return _ANALYZE_MOD
+
+def _find_fn_start(lines: list[str], def_line: int | None, fn_name: str) -> int:
+    """Return the 0-based line index where `fn fn_name` is defined."""
+    hint = max(0, (def_line or 1) - 1)
+
+    def _matches(l: str) -> bool:
+        return f"fn {fn_name}(" in l or f"fn {fn_name}<" in l
+
+    for i in range(max(0, hint - 50), min(len(lines), hint + 50)):
+        if _matches(lines[i]):
+            return i
+    for i in range(len(lines)):
+        if _matches(lines[i]):
+            return i
+    return hint
 
 
 # ── Name → fn_info index ──────────────────────────────────────────────────────
@@ -1292,14 +1307,13 @@ def _build_chain_nodes(ep: dict, name_idx: dict, src_root: str) -> list[dict]:
             caller_n, callee_n = hop_str.split(" → ", 1)
             guard_map[(caller_n.strip(), callee_n.strip())] = g
 
-    analyze = _get_analyze()
-    nodes   = []
+    nodes: list[dict] = []
 
     for i, fn_name in enumerate(chain_names):
-        info       = name_idx.get(fn_name, {})
-        is_target  = (i == n - 1)
-        is_direct  = (i == n - 2)
-        is_entry   = (i == 0)
+        info      = name_idx.get(fn_name, {})
+        is_target = (i == n - 1)
+        is_direct = (i == n - 2)
+        is_entry  = (i == 0)
 
         role = (
             "target"        if is_target else
@@ -1319,28 +1333,28 @@ def _build_chain_nodes(ep: dict, name_idx: dict, src_root: str) -> list[dict]:
             next_name = chain_names[i + 1] if i + 1 < n else ""
             guard     = guard_map.get((fn_name, next_name))
 
-            if guard:
-                cond = {
+            node["condition"] = (
+                {
                     "type":           guard["guard_type"],
                     "text":           guard["condition"],
                     "condition_line": None,
                     "confidence":     "high",
                 }
-            else:
-                cond = {
+                if guard else
+                {
                     "type":           "unconditional",
                     "text":           "unconditional",
                     "condition_line": None,
                     "confidence":     "high",
                 }
-            node["condition"] = cond
+            )
 
             # Include full source for the handler and direct caller
-            if (is_direct or is_entry) and analyze and src_root and info.get("file"):
+            if (is_direct or is_entry) and src_root and info.get("file"):
                 try:
-                    lines = analyze.read_file(src_root, info["file"])
+                    lines = _read_file(src_root, info["file"])
                     if lines:
-                        bs = analyze.find_fn_start(lines, info.get("def_line"), fn_name)
+                        bs = _find_fn_start(lines, info.get("def_line"), fn_name)
                         depth_c, end = 0, bs
                         for j in range(bs, min(len(lines), bs + 300)):
                             depth_c += lines[j].count("{") - lines[j].count("}")
@@ -1622,7 +1636,6 @@ def build_flows(
     intermediate call chain AND the same guard conditions.
     """
     name_idx = _build_name_index(fn_info)
-    analyze  = _get_analyze()
 
     # ── Group by flow signature ───────────────────────────────────────────────
     sig_map: dict = {}   # sig → (representative_ep, [all_eps])
@@ -1671,13 +1684,7 @@ def build_flows(
             chain_preview = " → ".join(rep_ep.get("call_chain", [])[:3])
             description   = f"path through {chain_preview}"
 
-        # Connectors for this endpoint's path
         connectors: list[str] = []
-        if analyze and src_root:
-            try:
-                connectors = analyze.get_connectors(src_root, rep_ep.get("path", ""))
-            except Exception:
-                pass
 
         # Deduplicated sharing endpoints
         sharing_out: list[dict] = []
@@ -1791,7 +1798,7 @@ def build_reachability_matrix(
 def find_impact(fn_name: str | None, src_root: str, max_depth: int = 8, out_path: str | None = None,
                 file_hint: str | None = None, line_hint: int | None = None):
 
-    driver = GraphDatabase.driver(NEO4J_URI, auth=NEO4J_AUTH)
+    driver = get_driver()
 
     # ── 1. Tag endpoints (idempotent) ─────────────────────────────────────────
     print("[1/4] Tagging API endpoint handlers …", file=sys.stderr)

@@ -81,6 +81,7 @@ testing_agent/input_raw.json
 # Rust (for scip bindings)
 target/
 
+
 # Editor/IDE backup files
 *.swp
 *.swo
@@ -95,5 +96,6 @@ temp/
 # Generated reports / coverage output
 report-generater/output/
 report-generater/ui/dist/
+testing_agent/bfs_outputs/
 *.lcov
 lcov.info

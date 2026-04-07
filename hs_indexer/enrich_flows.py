@@ -42,22 +42,21 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 import textwrap
+import urllib.error
+import urllib.request
+
+from hs_indexer.config import cfg
 
 # ── Config ─────────────────────────────────────────────────────────────────────
 
-MAX_SNIPPET_LEN  = 800    # chars of source snippet per intermediate chain node
-MAX_SOURCE_LEN   = 2_000  # chars of full_source / source for direct_caller / target
+MAX_SNIPPET_LEN = cfg.enrichment.max_snippet_len
+MAX_SOURCE_LEN  = cfg.enrichment.max_source_len
 
 # Default models per backend
-_DEFAULT_MODELS = {
-    "groq":      "llama-3.3-70b-versatile",
-    "gemini":    "gemini-2.0-flash",
-    "ollama":    "llama3.1",
-    "anthropic": "claude-opus-4-6",
-    "grid":      "claude-sonnet-4-6",
-}
+_DEFAULT_MODELS: dict[str, str] = vars(cfg.llm.models)
 
 
 # ── Shared output schema (as a prompt fragment) ────────────────────────────────
@@ -418,9 +417,8 @@ def _call_ollama(prompt: str, model: str, base_url: str) -> str:
     return data.get("response", "")
 
 
-def _call_grid(prompt: str, model: str) -> str:
-    import urllib.request as _urlreq
-    import urllib.error   as _urlerr
+def _call_grid_model(prompt: str, model: str) -> str:
+    """Call a single Grid model for enrichment. Raises RuntimeError on HTTP error."""
     api_key = os.environ.get("JUSPAY_API_KEY", "")
     if not api_key:
         raise RuntimeError("JUSPAY_API_KEY environment variable is not set.")
@@ -430,8 +428,8 @@ def _call_grid(prompt: str, model: str) -> str:
         "messages":    [{"role": "user", "content": prompt}],
         "temperature": 0.2,
     }).encode()
-    req = _urlreq.Request(
-        "https://grid.ai.juspay.net/v1/chat/completions",
+    req = urllib.request.Request(
+        f"{cfg.llm.grid_api_url}/v1/chat/completions",
         data=payload,
         headers={
             "Content-Type":  "application/json",
@@ -440,16 +438,35 @@ def _call_grid(prompt: str, model: str) -> str:
         method="POST",
     )
     try:
-        with _urlreq.urlopen(req, timeout=600) as resp:
+        with urllib.request.urlopen(req, timeout=600) as resp:
             data = json.loads(resp.read())
-        import re as _re
         text = data["choices"][0]["message"]["content"]
-        text = _re.sub(r"^```(?:json)?\s*", "", text.strip())
-        text = _re.sub(r"\s*```$", "", text.strip())
+        text = re.sub(r"^```(?:json)?\s*", "", text.strip())
+        text = re.sub(r"\s*```$", "", text.strip())
         return text
-    except _urlerr.HTTPError as e:
+    except urllib.error.HTTPError as e:
         body = e.read().decode(errors="replace")
         raise RuntimeError(f"Grid API error {e.code}: {body}") from e
+
+
+def _is_budget_error(err: RuntimeError) -> bool:
+    return "budget_exceeded" in str(err) or "daily limit" in str(err).lower()
+
+
+def _call_grid(prompt: str, model: str) -> str:
+    """Call Grid API with automatic fallback to the free model on budget errors."""
+    fallback = cfg.llm.models.grid_fallback
+    try:
+        return _call_grid_model(prompt, model)
+    except RuntimeError as exc:
+        if fallback and fallback != model and _is_budget_error(exc):
+            print(
+                f"  [enrich] Primary model ({model}) hit budget limit — "
+                f"retrying with fallback model ({fallback}) …",
+                file=sys.stderr,
+            )
+            return _call_grid_model(prompt, fallback)
+        raise
 
 
 def _call_anthropic(prompt: str, model: str) -> str:

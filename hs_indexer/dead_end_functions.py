@@ -31,15 +31,9 @@ import os
 import sys
 from collections import deque
 
-from neo4j import GraphDatabase
-
-NEO4J_URI = os.environ.get("NEO4J_URI", "bolt://localhost:7687")
-NEO4J_USER = os.environ.get("NEO4J_USER", "neo4j")
-NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "Hyperswitch@123")
-NEO4J_AUTH = (NEO4J_USER, NEO4J_PASSWORD)
-
-# ── same route parser as find_impact so we tag only v1 endpoints ──────────────
 import re
+
+from hs_indexer.db import get_driver
 
 def _parse_routes_app(filepath: str) -> list[dict]:
     try:
@@ -189,7 +183,7 @@ def main():
         print("Error: set SRC_ROOT env var or --src-root to the hyperswitch repo root.", file=sys.stderr)
         sys.exit(1)
 
-    driver = GraphDatabase.driver(NEO4J_URI, auth=NEO4J_AUTH)
+    driver = get_driver()
 
     print("[1/3] Tagging v1 API endpoints …", file=sys.stderr)
     tag_endpoints(src_root, driver)

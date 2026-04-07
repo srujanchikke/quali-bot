@@ -34,15 +34,13 @@ import sys
 
 from tree_sitter import Language, Parser
 import tree_sitter_rust
-from neo4j import GraphDatabase
+
+from hs_indexer.config import cfg
+from hs_indexer.db import get_driver
 
 # ── Config ─────────────────────────────────────────────────────────────────────
 
-NEO4J_URI = os.environ.get("NEO4J_URI", "bolt://localhost:7687")
-NEO4J_USER = os.environ.get("NEO4J_USER", "neo4j")
-NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "Hyperswitch@123")
-NEO4J_AUTH = (NEO4J_USER, NEO4J_PASSWORD)
-BATCH_SIZE = 2_000
+BATCH_SIZE = cfg.indexing.guards_batch_size
 
 # ── Tree-sitter setup ──────────────────────────────────────────────────────────
 
@@ -233,7 +231,7 @@ def annotate_all(src_root: str):
     Fetch every CALLS edge from Neo4j that has a file+line, annotate it with
     guard info, and write the result back in batches.
     """
-    driver = GraphDatabase.driver(NEO4J_URI, auth=NEO4J_AUTH)
+    driver = get_driver()
 
     with driver.session() as s:
         # Fetch all CALLS edges that have a call-site location
@@ -306,7 +304,7 @@ def annotate_all(src_root: str):
 
 def print_summary(src_root: str):
     """Print a breakdown of guard types found in the annotated graph."""
-    driver = GraphDatabase.driver(NEO4J_URI, auth=NEO4J_AUTH)
+    driver = get_driver()
     with driver.session() as s:
         rows = s.run("""
             MATCH ()-[r:CALLS]->()

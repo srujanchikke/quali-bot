@@ -34,13 +34,16 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-GRID_BASE_URL  = "https://grid.ai.juspay.net"
-GRID_MODEL     = "claude-sonnet-4-6"   # strong reasoning model via Grid
-MAX_SOURCE_LINES   = 70   # lines to read around a function definition
-MAX_CHAIN_NODES    = 4    # how many chain nodes to include source for
-MAX_HANDLER_LINES  = 40   # lines to read for each handler (shorter than full source)
-MAX_HANDLERS       = 8    # max unique handlers to include in prompt
-BATCH_SIZE         = 15   # endpoints per API call to keep response size manageable
+from hs_indexer.config import cfg
+
+GRID_BASE_URL          = cfg.llm.grid_api_url
+GRID_MODEL             = cfg.llm.models.grid
+GRID_FALLBACK_MODEL    = cfg.llm.models.grid_fallback
+MAX_SOURCE_LINES  = cfg.filter.max_source_lines
+MAX_CHAIN_NODES   = cfg.filter.max_chain_nodes
+MAX_HANDLER_LINES = cfg.filter.max_handler_lines
+MAX_HANDLERS      = cfg.filter.max_handlers
+BATCH_SIZE        = cfg.filter.batch_size
 
 
 # ── Source helpers ──────────────────────────────────────────────────────────────
@@ -143,21 +146,63 @@ def get_extra_context(caller_sources: list[tuple[str, str]], src_root: Path) -> 
     return "\n\n".join(extra)
 
 
+# ── JSON extraction ─────────────────────────────────────────────────────────────
+
+def _extract_json(text: str) -> str:
+    """
+    Robustly extract the first JSON object from model output.
+    Handles markdown fences, leading prose, and models that wrap JSON in text.
+    """
+    # Strip markdown code fences
+    text = re.sub(r"^```(?:json)?\s*", "", text.strip())
+    text = re.sub(r"\s*```$", "", text.strip())
+    text = text.strip()
+
+    if text.startswith("{"):
+        return text
+
+    # Find the first '{' and attempt to extract a balanced JSON object
+    start = text.find("{")
+    if start != -1:
+        depth = 0
+        for i, ch in enumerate(text[start:], start):
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    return text[start: i + 1]
+
+    # Last resort: regex for {"results": [...]}
+    match = re.search(r'\{.*?"results"\s*:\s*\[.*?\]\s*\}', text, re.DOTALL)
+    if match:
+        return match.group(0)
+
+    return text  # return as-is and let json.loads raise a useful error
+
+
 # ── Grid API call ───────────────────────────────────────────────────────────────
 
-def _call_grid(prompt: str) -> str:
-    """Call claude-sonnet-4-6 via Juspay Grid (OpenAI-compatible endpoint)."""
+def _call_grid_model(prompt: str, model: str) -> str:
+    """Call a single Grid model. Raises RuntimeError on any HTTP error."""
     api_key = os.environ.get("JUSPAY_API_KEY", "")
     if not api_key:
         raise RuntimeError("JUSPAY_API_KEY environment variable is not set.")
 
-    payload = json.dumps({
-        "model":           GRID_MODEL,
-        "max_tokens":      4096,
-        "messages":        [{"role": "user", "content": prompt}],
-        "response_format": {"type": "json_object"},
-        "temperature":     0.1,
-    }).encode()
+    # response_format: json_object is only supported by OpenAI-compatible Claude/GPT
+    # models. Free Grid models like kimi-latest ignore or reject it, returning empty
+    # responses. Omit it for non-Claude models and rely on the prompt instruction.
+    _supports_json_format = any(x in model.lower() for x in ("claude", "gpt-4", "gpt-3"))
+    body: dict = {
+        "model":       model,
+        "max_tokens":  4096,
+        "messages":    [{"role": "user", "content": prompt}],
+        "temperature": 0.1,
+    }
+    if _supports_json_format:
+        body["response_format"] = {"type": "json_object"}
+
+    payload = json.dumps(body).encode()
 
     req = urllib.request.Request(
         f"{GRID_BASE_URL}/v1/chat/completions",
@@ -171,21 +216,42 @@ def _call_grid(prompt: str) -> str:
     try:
         with urllib.request.urlopen(req, timeout=300) as resp:
             data = json.loads(resp.read())
-        text = data["choices"][0]["message"]["content"]
-        # claude-sonnet may wrap JSON in markdown fences — strip them
-        text = text.strip()
-        # Strip markdown fences if present
-        text = re.sub(r"^```(?:json)?\s*", "", text)
-        text = re.sub(r"\s*```$", "", text.strip())
-        # If model returned analysis text with embedded JSON, extract the JSON object
-        if not text.startswith("{"):
-            match = re.search(r'\{[^{}]*"results"\s*:\s*\[.*?\]\s*\}', text, re.DOTALL)
-            if match:
-                text = match.group(0)
+        text = data["choices"][0]["message"]["content"].strip()
+        if not text:
+            raise RuntimeError(f"Model {model!r} returned empty content (may not support JSON mode)")
+        text = _extract_json(text)
         return text
     except urllib.error.HTTPError as e:
         body = e.read().decode(errors="replace")
         raise RuntimeError(f"Grid API error {e.code}: {body}") from e
+
+
+def _is_budget_error(err: RuntimeError) -> bool:
+    return "budget_exceeded" in str(err) or "daily limit" in str(err).lower()
+
+
+def _call_grid(prompt: str, model: str | None = None) -> str:
+    """
+    Call the Grid API.  Falls back to GRID_FALLBACK_MODEL automatically when
+    the primary model returns a budget-exceeded error.
+
+    Pass ``model`` explicitly to override both primary and fallback for a
+    single call (e.g. when the user sets --model on the CLI).
+    """
+    primary  = model or GRID_MODEL
+    fallback = GRID_FALLBACK_MODEL
+
+    try:
+        return _call_grid_model(prompt, primary)
+    except RuntimeError as exc:
+        if fallback and fallback != primary and _is_budget_error(exc):
+            print(
+                f"  [filter] Primary model ({primary}) hit budget limit — "
+                f"retrying with fallback model ({fallback}) …",
+                file=sys.stderr,
+            )
+            return _call_grid_model(prompt, fallback)
+        raise
 
 
 # ── Prompt builder ──────────────────────────────────────────────────────────────
@@ -299,7 +365,8 @@ def build_prompt(changed_fn_name: str,
 # ── Main filtering logic ────────────────────────────────────────────────────────
 
 def filter_endpoints(raw: list[dict], src_root: Path,
-                     wrapper: dict | None = None) -> list[dict]:
+                     wrapper: dict | None = None,
+                     model: str | None = None) -> list[dict]:
     if not raw:
         return raw
 
@@ -371,7 +438,7 @@ def filter_endpoints(raw: list[dict], src_root: Path,
                                      fn_file=fn_file, fn_line=fn_line,
                                      handler_sources=handler_sources)
             try:
-                raw_resp = _call_grid(prompt)
+                raw_resp = _call_grid(prompt, model=model)
                 parsed   = json.loads(raw_resp)
                 for item in parsed.get("results", []):
                     idx     = item.get("index")
@@ -414,6 +481,14 @@ def main() -> None:
     ap.add_argument("--input",    required=True, help="Raw find_impact JSON path")
     ap.add_argument("--src-root", required=True, help="Hyperswitch source root")
     ap.add_argument("--out",      default=None,  help="Output path (default: <input>_filtered.json)")
+    ap.add_argument(
+        "--model", default=None,
+        help=(
+            f"Grid model to use (default: {GRID_MODEL}). "
+            f"On budget errors falls back to {GRID_FALLBACK_MODEL}. "
+            "Free Grid models: kimi-latest, glm-latest, hosted_vllm/kimi-k2-5, hosted_vllm/deepseek"
+        ),
+    )
     args = ap.parse_args()
 
     in_path  = Path(args.input)
@@ -438,7 +513,7 @@ def main() -> None:
         raw_list = raw_data.get("endpoints", raw_data.get("matrix", []))
         wrapper  = raw_data
 
-    filtered = filter_endpoints(raw_list, src_root, wrapper=wrapper)
+    filtered = filter_endpoints(raw_list, src_root, wrapper=wrapper, model=args.model)
 
     if wrapper is not None:
         key = "endpoints" if "endpoints" in wrapper else "matrix"
