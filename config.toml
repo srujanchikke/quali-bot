@@ -1,0 +1,43 @@
+# hs_indexer configuration
+# ========================
+# Override any value with an environment variable (see comments per key).
+# Sensitive values (passwords, API keys) should be set via env vars, not here.
+
+[neo4j]
+uri      = "bolt://localhost:7687"  # override: NEO4J_URI
+user     = "neo4j"                  # override: NEO4J_USER
+password = "Hyperswitch@123"        # override: NEO4J_PASSWORD
+
+[indexing]
+scip_path            = "index.scip"
+callgraph_batch_size = 5000
+trait_map_batch_size = 1000
+guards_batch_size    = 2000
+skip_dirs            = ["target", ".git", "node_modules"]
+
+[query]
+default_depth = 12
+
+[llm]
+grid_api_url    = "https://grid.ai.juspay.net"
+default_backend = "auto"
+
+[llm.models]
+groq      = "llama-3.3-70b-versatile"
+gemini    = "gemini-2.0-flash"
+ollama    = "llama3.1"
+anthropic = "claude-opus-4-6"
+grid      = "claude-sonnet-4-6" 
+# Set to any free Grid model, e.g. kimi-latest, glm-latest, hosted_vllm/kimi-k2-5
+grid_fallback = "kimi-latest"
+
+[enrichment]
+max_snippet_len = 800
+max_source_len  = 2000
+
+[filter]
+max_source_lines  = 70
+max_chain_nodes   = 4
+max_handler_lines = 40
+max_handlers      = 8
+batch_size        = 15
