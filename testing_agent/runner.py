@@ -307,31 +307,27 @@ class CypressRunner:
 
         return cmd
 
-    def _setup_specs(self) -> list[str]:
-        """Return the setup spec files that must run before payment tests."""
-        return [
-            "cypress/e2e/spec/Payment/00001-AccountCreate.cy.js",
-            "cypress/e2e/spec/Payment/00002-CustomerCreate.cy.js",
-            "cypress/e2e/spec/Payment/00003-ConnectorCreate.cy.js",
-        ]
-
     def run(
         self,
-        connector:  str,
-        flow:       str,
-        spec_file:  Optional[str]  = None,
-        extra_env:  Optional[dict] = None,
-        setup:      bool           = False,
+        connector:   str,
+        flow:        str,
+        spec_file:   Optional[str]       = None,
+        extra_env:   Optional[dict]      = None,
+        setup_specs: Optional[list[str]] = None,
     ) -> RunResult:
         """
         Run cypress tests for (connector, flow).
 
         Args:
-            connector:  Connector name e.g. "Stripe" or "stripe"
-            flow:       Flow name e.g. "Overcapture"
-            spec_file:  Override spec file (optional)
-            extra_env:  Extra cypress env vars
-            setup:      If True, run 00001-00003 setup specs first (MODE 1)
+            connector:   Connector name e.g. "Stripe" or "stripe"
+            flow:        Flow name e.g. "Overcapture"
+            spec_file:   Override spec file (optional)
+            extra_env:   Extra cypress env vars
+            setup_specs: Explicit list of setup spec files to run before the
+                         test spec (in the same cypress process so globalState
+                         persists). Pass [] or None to skip setup entirely.
+                         Derived from flow prerequisites by the pipeline —
+                         NOT hardcoded here.
         """
         # Resolve spec file
         if not spec_file:
@@ -347,10 +343,10 @@ class CypressRunner:
 
         # Build spec list — setup specs must be in the SAME cypress run
         # as the test spec so globalState persists across specs
-        if setup:
-            all_specs = ",".join(self._setup_specs() + [spec_file])
+        if setup_specs:
+            all_specs = ",".join(setup_specs + [spec_file])
             print("  Running setup + test in one cypress process (globalState must persist):")
-            print(f"    setup: {[s.split('/')[-1] for s in self._setup_specs()]}")
+            print(f"    setup: {[s.split('/')[-1] for s in setup_specs]}")
             print(f"    test:  {spec_file.split('/')[-1]}")
         else:
             all_specs = spec_file

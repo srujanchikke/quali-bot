@@ -262,7 +262,9 @@ PY
   fi
   
   cd "${HYPERSWITCH_ROOT}"
-  "${ROUTER_BIN}" -f "${ROUTER_CONFIG}" >> "${ROUTER_LOG}" 2>&1 &
+  # LLVM-instrumented builds have larger stack frames per function; set a generous
+  # per-thread stack size so actix worker threads don't overflow under coverage.
+  RUST_MIN_STACK=20108864 "${ROUTER_BIN}" -f "${ROUTER_CONFIG}" >> "${ROUTER_LOG}" 2>&1 &
   ROUTER_PID=$!
   cd "${PROJECT_ROOT}"
   

@@ -1,0 +1,24 @@
+{
+  "_comment": "Add the block you need to ~/Library/Application Support/Claude/claude_desktop_config.json",
+
+  "mcpServers": {
+
+    "_option_a_stdio": {
+      "_comment": "stdio — Claude Desktop spawns the server as a child process. No network, no auth needed.",
+      "command": "/path/to/coverage-mcp-server/.venv/bin/coverage-mcp-server",
+      "env": {
+        "COVERAGE_FILE_PATH": "/Users/you/Downloads/index.json",
+        "MCP_TRANSPORT": "stdio"
+      }
+    },
+
+    "_option_b_sse": {
+      "_comment": "SSE — Claude Desktop connects to the already-running Docker container over HTTP.",
+      "url": "http://localhost:9090/sse",
+      "headers": {
+        "Authorization": "Bearer test_admin"
+      }
+    }
+
+  }
+}

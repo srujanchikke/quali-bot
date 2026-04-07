@@ -90,10 +90,66 @@ def load_flow(flow_arg: str) -> tuple:
 
 import re as _re
 
-def _pick_best_candidate(candidates, flow):
+def _config_blocks_matching_fields(required_fields: set, connector: str, repo: str) -> set:
+    """
+    Scan cypress/e2e/configs/Payment/{connector}.js for flow block names whose
+    Request object contains ALL of the required fields.
+
+    This is the general pattern-match: we derive what fields a flow needs from
+    input.json prerequisites, then find config blocks already implementing them.
+    """
+    if not required_fields or not connector:
+        return set()
+    config_path = Path(repo) / f"cypress/e2e/configs/Payment/{connector}.js"
+    if not config_path.exists():
+        return set()
+    import re as _re
+    content = config_path.read_text(encoding="utf-8", errors="replace")
+    # Match: BlockName: { ... Request: { ... } ... }
+    # Capture block name + everything up to the closing brace of Request
+    block_re = _re.compile(
+        r'(\w+)\s*:\s*\{[^}]*?Request\s*:\s*\{([^}]*(?:\{[^}]*\}[^}]*)*?)\}',
+        _re.DOTALL,
+    )
+    matching = set()
+    for m in block_re.finditer(content):
+        block_name   = m.group(1)
+        request_body = m.group(2)
+        if all(field in request_body for field in required_fields):
+            matching.add(block_name)
+    return matching
+
+
+def _specs_referencing_blocks(block_names: set, candidates, repo: str):
+    """
+    Return the subset of candidates whose spec file references any of block_names.
+    Preserves original candidate order so caller can re-sort.
+    """
+    if not block_names:
+        return []
+    matched = []
+    for c in candidates:
+        try:
+            content = (Path(repo) / c.spec_file).read_text(encoding="utf-8", errors="replace")
+            if any(b in content for b in block_names):
+                matched.append(c)
+        except OSError:
+            pass
+    return matched
+
+
+def _pick_best_candidate(candidates, flow, connector: str = "", repo: str = ""):
     """
     Pick the most relevant existing spec for a regression run.
-    Scores by matching the trigger body's payment characteristics to spec names/test names.
+
+    Strategy (in priority order):
+    1. Pattern match — extract required fields from flow prerequisites, find config
+       blocks that implement those fields, boost specs that reference those blocks.
+       This is data-driven from input.json; no flow-type-specific hardcoding.
+    2. Handler keyword match — handler name signals the scenario type.
+    3. Trigger body signals — capture_method, confirm, etc.
+    4. Generic penalty — penalise unrelated spec types only when pattern match
+       found no signal (i.e. we have no idea what the flow needs).
     """
     if not candidates: return None
 
@@ -105,11 +161,9 @@ def _pick_best_candidate(candidates, flow):
             break
         break
 
-    # Also score by handler name keywords
     handler = (flow.get("endpoints", [{}])[0].get("handler", "")
                or next(iter(flow.get("trigger_payloads", {})), ""))
 
-    # Map handler keywords → spec keywords
     HANDLER_SPEC_MAP = {
         "incremental": "incremental",
         "overcapture": "overcapture",
@@ -123,18 +177,38 @@ def _pick_best_candidate(candidates, flow):
         "threedsauth": "threedsmanual",
     }
 
+    # ── Pattern match (general, driven by input.json prerequisites) ──────────
+    # Only use fields that are actual API request body keys — not Rust expressions.
+    # A valid JS field name contains no dots, spaces, parens, or angle brackets.
+    import re as _re_field
+    _is_api_field = lambda f: bool(f) and not _re_field.search(r'[\s.()\[\]<>]', f)
+    required_fields = {
+        p["field"] for p in flow.get("prerequisites", [])
+        if p.get("field") and _is_api_field(p["field"])
+    }
+
+    matching_blocks = _config_blocks_matching_fields(required_fields, connector, repo)
+    pattern_matched_specs = {
+        c.spec_file for c in _specs_referencing_blocks(matching_blocks, candidates, repo)
+    }
+    has_pattern_signal = bool(pattern_matched_specs)
+
     def score(c):
         s = 0
-        spec = c.spec_file.split("/")[-1].lower()
+        spec  = c.spec_file.split("/")[-1].lower()
         tests = " ".join(c.test_names).lower()
+        h     = handler.lower()
 
-        # Handler-based boost — highest priority
-        h = handler.lower()
+        # Priority 1: config block pattern match — strongest signal
+        if c.spec_file in pattern_matched_specs:
+            s += 600
+
+        # Priority 2: handler keyword match
         for h_kw, s_kw in HANDLER_SPEC_MAP.items():
             if h_kw in h and s_kw in spec:
                 s += 500
 
-        # Scenario-specific boosts based on trigger body
+        # Priority 3: trigger body signals
         if body.get("confirm") is True:
             if any(kw in spec for kw in ("nothree", "no3ds", "autocapture", "manualcapture")):
                 s += 200
@@ -152,14 +226,13 @@ def _pick_best_candidate(candidates, flow):
         if body.get("customer_id"):
             if any(kw in spec for kw in ("savecard", "customer", "mandate")): s += 100
 
-        # Penalise unrelated spec types for generic payment flows
-        if not body.get("customer_id") and not body.get("mandate_id"):
-            if "incremental" not in h:  # don't penalise if we're looking for incremental
+        # Priority 4: penalise unrelated specs — only when pattern match gave no signal
+        if not has_pattern_signal and not body.get("customer_id") and not body.get("mandate_id"):
+            if "incremental" not in h:
                 if any(kw in spec for kw in ("mandate", "savecard", "zeroauth", "wallet",
                                               "banktransfer", "bankredirect", "upi", "crypto",
                                               "reward", "realtime", "variations")): s -= 300
 
-        # Prefer specs with more test coverage
         s += len(c.test_names)
         return s
 
@@ -234,17 +307,106 @@ def run_flow_pipeline(
 
         n = len(result.candidates)
         if n:
-            best = _pick_best_candidate(result.candidates, flow)
+            best = _pick_best_candidate(result.candidates, flow, connector, repo)
             print(f"  Candidates    : {n} existing spec(s)")
             print(f"  Best match    : {best.spec_file} ({len(best.test_names)} tests)")
 
-        # COVERED or NEEDS_LLM_CHECK with candidates:
-        # For CONNECTOR_ONLY flows, first verify the connector has:
-        #   A) a config block in Connector.js  (MISSING_CONFIG → codegen)
-        #   B) an entry in the allowlist        (NOT_IN_ALLOWLIST → codegen)
-        # Only then run the spec.
-        if result.status in (CoverageStatus.COVERED, CoverageStatus.NEEDS_LLM_CHECK) and result.candidates:
-            best = _pick_best_candidate(result.candidates, flow)
+        # COVERED: spec confirmed by graph — run regression directly.
+        # NEEDS_LLM_CHECK: graph found specs covering the same endpoints but
+        #   cannot confirm the specific guards/conditions are exercised.
+        #   Ask the LLM to verify before deciding whether to run regression
+        #   or fall through to new test generation.
+        if result.status == CoverageStatus.NEEDS_LLM_CHECK and result.candidates:
+            best = _pick_best_candidate(result.candidates, flow, connector, repo)
+            sep("STEP 1b — LLM: verify existing spec covers this flow variant")
+            try:
+                from codegen import GridClient
+                llm = GridClient(model=GRID_MODEL, api_key=GRID_KEY, base_url=GRID_URL)
+                spec_path = Path(repo) / best.spec_file
+                spec_content = spec_path.read_text(encoding="utf-8", errors="replace")[:6000]
+                guards = flow.get("prerequisites", [])
+                conditions = []
+                for g in guards:
+                    reason = g.get("reason", "")
+                    field  = g.get("field", "")
+                    if reason:
+                        conditions.append(f"{field}: {reason}" if field else reason)
+                    elif field:
+                        conditions.append(f"field '{field}' must be present/valid")
+                # Also pull guard text from chain hops
+                for hop in flow.get("chain", []):
+                    cond = hop.get("condition", {})
+                    if isinstance(cond, dict) and cond.get("type") == "match":
+                        conditions.append(f"match guard: {cond.get('text', '')}")
+                conditions_text = "\n".join(f"  - {c}" for c in conditions) if conditions else f"  - {flow.get('description', '(see description)')}"
+                desc = flow.get("description", "")
+
+                # Build a summary of all candidates so the LLM can identify
+                # if any other spec already covers the required conditions
+                other_candidates_text = ""
+                others = [c for c in result.candidates if c.spec_file != best.spec_file][:10]
+                if others:
+                    lines = []
+                    for c in others:
+                        spec_name = c.spec_file.split("/")[-1]
+                        lines.append(f"  - {spec_name}: {', '.join(c.test_names[:4])}")
+                    other_candidates_text = "\n## Other candidate specs (by name + test names)\n" + "\n".join(lines)
+
+                verify_prompt = f"""You are reviewing Cypress test specs to determine if any already cover a specific payment flow variant.
+
+## Flow variant to cover
+Description: {desc}
+Changed function: {flow.get('changed_function', '')}
+
+## Required conditions that must be exercised
+{conditions_text}
+
+## Best candidate spec: {best.spec_file.split('/')[-1]} (first 6000 chars)
+```javascript
+{spec_content}
+```
+{other_candidates_text}
+
+Does the best candidate spec (or any of the other candidates listed above) exercise ALL of the required conditions?
+Answer on the first line: YES <spec_filename> or NO.
+On the next line, briefly explain why (1-2 sentences).
+"""
+                answer = llm.chat(
+                    system="You are a senior test engineer. Answer concisely.",
+                    user=verify_prompt,
+                    max_tokens=200,
+                )
+                first_line = answer.strip().splitlines()[0].strip().upper()
+                print(f"  LLM verdict   : {answer.strip().splitlines()[0].strip()}")
+                if len(answer.strip().splitlines()) > 1:
+                    print(f"  Reason        : {answer.strip().splitlines()[1]}")
+
+                # Check if LLM identified a different spec than the best candidate
+                if first_line.startswith("YES"):
+                    # Try to extract a specific filename from the answer
+                    import re as _re2
+                    fname_match = _re2.search(r'(\d{5}-[\w]+\.cy\.js)', answer, _re2.IGNORECASE)
+                    if fname_match:
+                        identified = fname_match.group(1)
+                        alt = next((c for c in result.candidates
+                                    if identified.lower() in c.spec_file.lower()), None)
+                        if alt and alt.spec_file != best.spec_file:
+                            print(f"  ↳ LLM identified better match: {alt.spec_file}")
+                            best = alt
+                            result.candidates = [alt] + [c for c in result.candidates if c != alt]
+                    print(f"  ✅ LLM confirmed spec covers this variant — running for regression")
+                    result.status = CoverageStatus.COVERED
+                else:
+                    print(f"  ⚠️  LLM says no existing spec covers this variant — generating new test")
+                    result.status = CoverageStatus.MISSING
+                    result.candidates = []
+                    # Fall through to Strategy C below
+            except Exception as llm_err:
+                print(f"  ⚠️  LLM check failed ({llm_err}) — defaulting to regression")
+                result.status = CoverageStatus.COVERED
+
+        if result.status == CoverageStatus.COVERED and result.candidates:
+            best = _pick_best_candidate(result.candidates, flow, connector, repo)
 
             # For CONNECTOR_ONLY: check connector-level config before running
             if connector and result.flow_type == FlowType.CONNECTOR_ONLY:
@@ -272,7 +434,7 @@ def run_flow_pipeline(
                             print(f"  (dry-run) would run: {best.spec_file} --env CONNECTOR={connector.lower()}")
                             return
                         if not skip_run:
-                            _run_cypress_spec(best.spec_file, connector, repo, verbose)
+                            _run_cypress_spec(best.spec_file, connector, repo, verbose, flow)
                         return
                 else:
                     print(f"  ✅ Existing spec covers these endpoints — run for regression")
@@ -280,7 +442,7 @@ def run_flow_pipeline(
                         print(f"  (dry-run) would run: {best.spec_file} --env CONNECTOR={connector.lower()}")
                         return
                     if not skip_run:
-                        _run_cypress_spec(best.spec_file, connector, repo, verbose)
+                        _run_cypress_spec(best.spec_file, connector, repo, verbose, flow)
                     return
             else:
                 print(f"  ✅ Existing spec covers these endpoints — run for regression")
@@ -288,13 +450,13 @@ def run_flow_pipeline(
                     print(f"  (dry-run) would run: {best.spec_file} --env CONNECTOR={connector.lower()}")
                     return
                 if not skip_run:
-                    _run_cypress_spec(best.spec_file, connector, repo, verbose)
+                    _run_cypress_spec(best.spec_file, connector, repo, verbose, flow)
                 return
 
         if run_only:
             if result.candidates:
-                best = _pick_best_candidate(result.candidates, flow)
-                _run_cypress_spec(best.spec_file, connector, repo, verbose)
+                best = _pick_best_candidate(result.candidates, flow, connector, repo)
+                _run_cypress_spec(best.spec_file, connector, repo, verbose, flow)
             else:
                 print("  ❌ --run-only but no spec found")
             return
@@ -342,10 +504,10 @@ def run_flow_pipeline(
             print(f"  {patch.summary()}")
             idx.close()
             if patch.success and not skip_run:
-                best = _pick_best_candidate(result.candidates, flow) if result.candidates else None
+                best = _pick_best_candidate(result.candidates, flow, connector, repo) if result.candidates else None
                 if best:
                     sep("STEP 3 — Cypress run")
-                    _run_cypress_spec(best.spec_file, connector, repo, verbose)
+                    _run_cypress_spec(best.spec_file, connector, repo, verbose, flow)
             return
 
         # ── Strategy B: MISSING_CONFIG ────────────────────────────────────────
@@ -461,10 +623,10 @@ The block must match the style of existing blocks in {connector}.js:
                 # result.candidates is empty (check_coverage returned early for MISSING_CONFIG)
                 # Re-query now that files are patched and reindexed
                 candidates = q._find_covering_specs(result.trigger_paths)
-                best = _pick_best_candidate(candidates, flow) if candidates else None
+                best = _pick_best_candidate(candidates, flow, connector, repo) if candidates else None
                 if best:
                     sep("STEP 4 — Cypress run")
-                    _run_cypress_spec(best.spec_file, connector, repo, verbose)
+                    _run_cypress_spec(best.spec_file, connector, repo, verbose, flow)
                 else:
                     print("  ⚠️  No spec found to run after patching — reindex and retry")
             return
@@ -523,7 +685,52 @@ The block must match the style of existing blocks in {connector}.js:
         q.close()
 
 
-def _run_cypress_spec(spec_file: str, connector: str, repo: str, verbose: bool = False):
+def _derive_setup_specs(flow: dict, repo: str) -> list[str]:
+    """
+    Derive which setup specs must run before the test spec, based on what
+    the flow actually needs (from llm_spec.setup_payloads endpoints).
+
+    This replaces the hardcoded "always run Account+Customer+Connector create"
+    approach. Each setup spec is only included when the flow's prerequisites
+    actually require it.
+
+    Endpoint → setup spec mapping:
+      /accounts or /account/*          → 00001-AccountCreate
+      /customers                       → 00002-CustomerCreate
+      /account/*/connectors            → 00003-ConnectorCreate
+      /user/signup or /user/signin     → (user login — no separate setup spec needed,
+                                          handled by the spec's beforeEach)
+      (anything else / empty)          → no setup
+    """
+    ENDPOINT_TO_SETUP = {
+        "/accounts":   "cypress/e2e/spec/Payment/00001-AccountCreate.cy.js",
+        "/account/":   "cypress/e2e/spec/Payment/00001-AccountCreate.cy.js",
+        "/customers":  "cypress/e2e/spec/Payment/00002-CustomerCreate.cy.js",
+        "/connectors": "cypress/e2e/spec/Payment/00003-ConnectorCreate.cy.js",
+    }
+
+    setup_payloads = flow.get("llm_spec", {}).get("setup_payloads", [])
+    if not setup_payloads:
+        # No llm_spec setup_payloads — fall back to checking top-level setup_payloads
+        setup_payloads = flow.get("setup_payloads", [])
+
+    needed = []
+    seen   = set()
+    for step in setup_payloads:
+        endpoint = step.get("endpoint", "") or step.get("url", "")
+        for pattern, spec in ENDPOINT_TO_SETUP.items():
+            if pattern in endpoint and spec not in seen:
+                # Verify the setup spec actually exists before adding it
+                if (Path(repo) / spec).exists():
+                    needed.append(spec)
+                    seen.add(spec)
+                break
+
+    return needed
+
+
+def _run_cypress_spec(spec_file: str, connector: str, repo: str, verbose: bool = False,
+                      flow: dict = None):
     """Run a specific spec file for a given connector, with setup specs first."""
 
     # Verify the spec file actually exists on disk
@@ -557,10 +764,10 @@ def _run_cypress_spec(spec_file: str, connector: str, repo: str, verbose: bool =
     c = connector.lower() if connector else "service"
     print(f"  Running: {spec_file} --env CONNECTOR={c}")
 
-    # Payment specs need 00001-AccountCreate, 00002-CustomerCreate, 00003-ConnectorCreate
-    # to run first so globalState has connectorId, customerId etc.
-    is_payment_spec = "spec/Payment/" in spec_file
-    result = runner.run(c, flow="", spec_file=spec_file, setup=is_payment_spec)
+    # Derive setup specs from the flow's actual prerequisites.
+    # Only the specs the flow truly needs are included — no hardcoded list.
+    setup_specs = _derive_setup_specs(flow, repo) if flow else []
+    result = runner.run(c, flow="", spec_file=spec_file, setup_specs=setup_specs)
     _print_run_result(result, verbose)
 
 

@@ -199,8 +199,9 @@ def extract_connector_from_flow(flow: dict) -> str:
       1. flow.specialization.connector
       2. flow.prerequisites where kind="concrete_type"
       3. trigger_payload.body.connector
+      4. setup_payloads[*].body.connector_name (e.g. "Configure Stripe connector" step)
     """
-    spec = flow.get('specialization', {})
+    spec = flow.get('specialization') or {}
     if spec.get('connector'):
         return spec['connector']
     for p in flow.get('prerequisites', []):
@@ -208,7 +209,13 @@ def extract_connector_from_flow(flow: dict) -> str:
             return p['required_value']
     body = flow.get('trigger_payload', {}).get('body', {})
     c = body.get('connector', '')
-    return c.capitalize() if c else ''
+    if c:
+        return c.capitalize()
+    for step in flow.get('llm_spec', {}).get('setup_payloads', []):
+        connector_name = step.get('body', {}).get('connector_name', '')
+        if connector_name:
+            return connector_name
+    return ''
 
 
 def normalise_flow(flow: dict, top_level: dict = None) -> dict:
@@ -281,7 +288,11 @@ def normalise_flow(flow: dict, top_level: dict = None) -> dict:
 
         # Full chain for LLM context
         'chain':               flow.get('chain', []),
-        'specialization':      flow.get('specialization', {}),
+        'specialization':      flow.get('specialization') or {},
+
+        # LLM-generated spec metadata — carries setup_payloads, trigger_payloads,
+        # dispatch conditions etc. Preserved so pipeline can derive setup needs.
+        'llm_spec':            flow.get('llm_spec') or {},
     }
 
 
