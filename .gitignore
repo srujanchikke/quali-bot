@@ -31,6 +31,7 @@ secrets.json
 
 # Neo4j / credentials
 config.py
+!coverage-mcp-server/src/coverage_mcp/config.py
 credentials.json
 
 # Python build & packaging
@@ -99,3 +100,4 @@ report-generater/ui/dist/
 testing_agent/bfs_outputs/
 *.lcov
 lcov.info
+.mcp.json

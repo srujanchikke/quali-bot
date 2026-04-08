@@ -365,6 +365,18 @@ def _run_sse():
             await send({"type": "http.response.body",
                         "body": b'{"error":"Unauthorized"}', "more_body": False})
 
+        _OAUTH_DISCOVERY_PATHS = {
+            "/.well-known/oauth-authorization-server",
+            "/.well-known/openid-configuration",
+            "/.well-known/oauth-protected-resource",
+        }
+
+        async def _send_404(send):
+            await send({"type": "http.response.start", "status": 404,
+                        "headers": [(b"content-type", b"application/json")]})
+            await send({"type": "http.response.body",
+                        "body": b'{"error":"not_found"}', "more_body": False})
+
         async def app(scope, receive, send):
             if scope["type"] == "lifespan":
                 while True:
@@ -382,6 +394,13 @@ def _run_sse():
             path   = scope.get("path", "")
             method = scope.get("method", "")
             client = scope.get("client", ("unknown",))[0]
+
+            # Return 404 for OAuth discovery paths without auth check.
+            # This signals to MCP clients that OAuth is not supported,
+            # causing them to fall back to Bearer token auth directly.
+            if path in _OAUTH_DISCOVERY_PATHS or path == "/register":
+                await _send_404(send)
+                return
 
             if not _check_auth(scope):
                 logger.warning(f"Auth failed | path={path} client={client}")
