@@ -1,35 +1,75 @@
 # coverage-mcp-server
 
-An [MCP](https://modelcontextprotocol.io) server that exposes LLVM line coverage data to AI assistants (Claude Code, Claude Desktop). Ask Claude questions like "which files in `crates/router` have the lowest coverage?" and get instant answers backed by real coverage data.
+An [MCP](https://modelcontextprotocol.io) server that exposes LLVM line and function coverage data to Claude (VS Code extension or Claude Desktop).
 
-## How it works
+---
 
-The server reads a coverage JSON file in a custom tree format (not `llvm-cov export`). It parses the nested `children` tree, extracts per-line coverage arrays, and serves the data through six MCP tools over SSE or stdio transport.
+## Architecture
 
 ```
-index.json  →  parser  →  in-memory cache  →  MCP tools  →  Claude
+┌─────────────────────────────────────────────────────────────────┐
+│  K8s cluster (AWS)                                              │
+│                                                                 │
+│  ┌─────────┐   upload files    ┌─────────────────────────────┐ │
+│  │ Jenkins │ ─────────────────►│  S3 bucket                  │ │
+│  │         │                   │  builds/                    │ │
+│  │         │   aws s3 presign  │    build-142-abc/           │ │
+│  │         │ ◄──────────────── │      line.json              │ │
+│  │         │                   │      function.json          │ │
+│  └────┬────┘                   └─────────────────────────────┘ │
+│       │ POST /sync                                              │
+│       │ { build_id, line_url, function_url }                   │
+│       │ Authorization: Bearer <SYNC_API_KEY>                   │
+└───────┼─────────────────────────────────────────────────────────┘
+        │ HTTPS (pre-signed URLs, no AWS creds needed)
+        ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Local machine                                                  │
+│                                                                 │
+│  ┌──────────────────────┐    downloads files via HTTPS         │
+│  │  sync service :8888  │ ──────────────────────────────────►  │
+│  │  POST /sync          │    (pre-signed URLs, no AWS creds)   │
+│  │  GET  /health        │                                       │
+│  └──────────┬───────────┘                                       │
+│             │ upsert                                            │
+│             ▼                                                   │
+│  ┌──────────────────────┐                                       │
+│  │  MongoDB             │                                       │
+│  │  builds              │                                       │
+│  │  file_coverage       │                                       │
+│  └──────────┬───────────┘                                       │
+│             │ query                                             │
+│             ▼                                                   │
+│  ┌──────────────────────┐    MCP over SSE                      │
+│  │  coverage-mcp :9090  │ ◄────────────────────── Claude       │
+│  │  GET  /sse           │    Authorization: Bearer <MCP_KEY>   │
+│  │  POST /messages      │                                       │
+│  └──────────────────────┘                                       │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-## Tools
+**No AWS credentials on the local machine.** Jenkins generates pre-signed S3 URLs (HTTPS links with auth baked in, valid 1 hour) and POSTs them to the sync service. The sync service downloads using plain HTTPS.
 
-| Tool | Description |
-|------|-------------|
-| `list_builds` | List available build tags |
-| `summarize_report` | Overall line coverage % for a build |
-| `get_folder_coverage` | Aggregate coverage for all files under a path prefix |
-| `get_file_coverage` | Line coverage + uncovered line numbers for a specific file |
-| `get_uncovered_lines` | Uncovered lines (count == 0) grouped by file, with optional file/folder filter |
-| `list_files` | All files sorted by missed lines, coverage %, or filename |
+---
 
-All tools except `list_builds` require a `tag` argument. Use `list_builds` first to see what tags are loaded.
+## Credentials
 
-## Coverage JSON format
+| Key | Held by | Protects |
+|-----|---------|----------|
+| AWS credentials | Jenkins only | S3 upload + pre-signed URL generation |
+| `SYNC_API_KEY` (raw) | Jenkins credential store | Calling `POST /sync` on local machine |
+| `SYNC_API_KEY_HASH` | Local `.env` | Verifying incoming `/sync` requests |
+| `MCP_API_KEY` (raw) | `.mcp.json` on dev machine | Calling the MCP server |
+| `MCP_API_KEY_HASH` | Local `.env` | Verifying Claude's MCP requests |
 
-The server expects a custom tree-format JSON (not the standard `llvm-cov export --format=json`):
+---
+
+## Coverage file formats
+
+### line.json — custom tree format
 
 ```json
 {
-  "name": "root",
   "coveragePercent": 8.08,
   "linesCovered": 29080,
   "linesMissed": 331018,
@@ -39,15 +79,9 @@ The server expects a custom tree-format JSON (not the standard `llvm-cov export 
       "children": {
         "router": {
           "children": {
-            "src": {
-              "children": {
-                "core.rs": {
-                  "coverage": [-1, 0, 3, 0, 1, ...],
-                  "linesCovered": 2,
-                  "linesMissed": 2,
-                  "linesTotal": 4
-                }
-              }
+            "payments.rs": {
+              "coverage": [-1, 0, 3, 0, 1],
+              "linesCovered": 2, "linesMissed": 2, "linesTotal": 4
             }
           }
         }
@@ -57,93 +91,94 @@ The server expects a custom tree-format JSON (not the standard `llvm-cov export 
 }
 ```
 
-Values in the `coverage` array: `-1` = not instrumented, `0` = missed (not executed), `>0` = hit count.
+`coverage` values: `-1` = not instrumented, `0` = missed, `>0` = hit count.
 
-> This format contains line-level coverage only — no function or region data.
+### function.json — Coveralls format
+
+```json
+{
+  "source_files": [
+    {
+      "name": "crates/router/src/payments.rs",
+      "coverage": [null, null, 3, 0, 1],
+      "functions": [
+        { "name": "handle_payment", "start": 45, "exec": true },
+        { "name": "refund",         "start": 90, "exec": false }
+      ]
+    }
+  ]
+}
+```
+
+---
+
+## MCP Tools (11)
+
+All tools except `list_builds` accept a `tag` argument. Use `latest` for the most recent build.
+Tools marked ★ require MongoDB mode (`MONGO_URI` set).
+
+| Tool | ★ | Description |
+|------|---|-------------|
+| `list_builds` | | Available build tags with line% and func% |
+| `summarize_report` | | Overall line + function coverage for a build |
+| `get_folder_coverage` | | Aggregate coverage for all files under a path prefix |
+| `get_file_coverage` | | Per-file line + function coverage + uncovered detail |
+| `get_uncovered_lines` | | Uncovered lines grouped by file (filterable by file/folder) |
+| `get_uncovered_functions` | ★ | Unexecuted functions with line numbers grouped by file |
+| `list_files` | | Files sorted by missed lines/functions |
+| `get_zero_coverage_files` | ★ | Files never touched by any test — easiest wins |
+| `search_function` | ★ | Look up a specific function and check if it is covered |
+| `compare_builds` | ★ | Coverage delta between two builds — regressions, improvements, new files |
+| `get_test_priority` | ★ | Files ranked by impact score `(func_missed × 3) + line_missed` |
+
+## MCP Prompts (4)
+
+Prompts are reusable instruction templates. Ask Claude to use them by name.
+
+| Prompt | Arguments | What it does |
+|--------|-----------|-------------|
+| `pr_coverage_review` | `head_tag`, `base_tag`, `pr_number` | Full PR coverage report — gets changed files via git, checks each file, finds uncovered functions, formats a PR comment |
+| `write_test_plan` | `tag`, `target` | Structured test plan for a folder/file — priority order, suggested test types, uncovered functions |
+| `coverage_regression_report` | `base_tag`, `head_tag` | What regressed between two builds, root cause hypothesis, recommended actions |
+| `onboarding_coverage_tour` | `tag` | Tour of worst-covered areas for a new QA engineer — where to focus, quick wins, how to use the tools |
+
+---
 
 ## Setup
 
-### Prerequisites
-
-- Python 3.11+
-- Docker (for containerized deployment)
-- A coverage `index.json` file
-
-### Local development (stdio)
+### 1. Generate API keys
 
 ```bash
-cd coverage-mcp-server
-python -m venv .venv && source .venv/bin/activate
-pip install -e .
+# Key for the sync service HTTP endpoint (Jenkins → sync)
+python3 sync/keygen.py
 
-COVERAGE_FILE_PATH=~/Downloads/index.json coverage-mcp-server
+# Key for the MCP server (Claude → MCP)
+python3 coverage-mcp-server/keygen.py
 ```
 
-### Generate an API key
+Each script prints a raw key and its SHA-256 hash. The hash goes in `.env`, the raw key goes to the caller.
 
-Required for SSE transport (Docker / remote access):
+### 2. Configure environment
 
 ```bash
-python3 keygen.py
+cp .env.example .env
+# Fill in: MONGO_PASSWORD, SYNC_API_KEY_HASH, MCP_API_KEY_HASH
 ```
 
-Output:
-```
-Raw key (client)      : abc123...   ← put this in Authorization: Bearer <key>
-SHA-256 hash (server) : def456...   ← put this in MCP_API_KEY_HASH env var
-```
+### 3. Start services
 
-The raw key is never stored on the server. Only the SHA-256 hash is held server-side; it cannot be reversed to recover the raw key.
-
-### Docker (SSE transport)
-
-**Build:**
 ```bash
-docker build -t coverage-mcp-server .
+docker compose up -d
 ```
 
-**Run (single file):**
-```bash
-docker run -d \
-  -e MCP_TRANSPORT=sse \
-  -e MCP_API_KEY_HASH=<hash-from-keygen> \
-  -e COVERAGE_FILE_PATH=/data/index.json \
-  -v ~/Downloads:/data \
-  -p 9090:8080 \
-  coverage-mcp-server
-```
+Three services start:
+- **mongo** — internal only, not exposed outside Docker network
+- **sync** — `localhost:8888`, receives build triggers from Jenkins
+- **coverage-mcp** — `localhost:9090`, serves MCP tools to Claude
 
-**Run (directory of builds):**
-```bash
-docker run -d \
-  -e MCP_TRANSPORT=sse \
-  -e MCP_API_KEY_HASH=<hash-from-keygen> \
-  -e COVERAGE_DIR=/data \
-  -v /path/to/coverage/artifacts:/data \
-  -p 9090:8080 \
-  coverage-mcp-server
-```
+### 4. Configure Claude Code (VS Code extension)
 
-In directory mode, place files named `coverage_{tag}.json` (e.g. `coverage_build-42.json`) in the mounted path. Each tag becomes independently queryable.
-
-## Configuration
-
-All settings are environment variables (or `.env` file):
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `COVERAGE_FILE_PATH` | `~/Downloads/index.json` | Path to single coverage JSON file |
-| `COVERAGE_DIR` | _(empty)_ | Directory of `coverage_{tag}.json` files. Takes precedence over `COVERAGE_FILE_PATH` when set. |
-| `MCP_API_KEY_HASH` | _(empty)_ | SHA-256 hex digest of the raw API key. Required for SSE transport. |
-| `MCP_TRANSPORT` | `stdio` | `stdio` or `sse` |
-| `MCP_HOST` | `0.0.0.0` | Bind host (SSE only) |
-| `MCP_PORT` | `8080` | Bind port (SSE only) |
-
-Copy `.env.example` to `.env` and fill in values for local runs.
-
-## Connecting Claude Code (VS Code extension)
-
-Create `.mcp.json` in the project root (not `~/.claude/`):
+Create `.mcp.json` in the project root:
 
 ```json
 {
@@ -152,50 +187,136 @@ Create `.mcp.json` in the project root (not `~/.claude/`):
       "type": "sse",
       "url": "http://localhost:9090/sse",
       "headers": {
-        "Authorization": "Bearer <your-raw-key>"
+        "Authorization": "Bearer <raw-mcp-key>"
       }
     }
   }
 }
 ```
 
-Then add to `~/.claude/settings.json`:
+Add to `~/.claude/settings.json`:
 ```json
+{ "enabledMcpjsonServers": ["coverage"] }
+```
+
+Reload VS Code (`Cmd+Shift+P` → Developer: Reload Window).
+
+### 5. Configure Jenkins
+
+Add these as Jenkins credentials:
+- `COVERAGE_S3_BUCKET` — your S3 bucket name
+- `SYNC_SERVICE_URL` — `http://<your-local-ip>:8888/sync`
+- `SYNC_API_KEY` — raw key from `sync/keygen.py`
+- `aws-credentials` — AWS key pair with S3 read/write on your bucket
+
+Add the pipeline stage from `jenkins_pipeline_snippet.groovy` to your `Jenkinsfile`.
+
+---
+
+## Sync service API
+
+### `POST /sync`
+
+Trigger a coverage sync for a build.
+
+```
+Authorization: Bearer <SYNC_API_KEY>
+Content-Type: application/json
+
 {
-  "enabledMcpjsonServers": ["coverage"]
+  "build_id":     "build-142-abc1234",   // required
+  "branch":       "main",
+  "commit":       "abc1234",
+  "line_url":     "https://s3.amazonaws.com/...?X-Amz-Signature=...",  // required
+  "function_url": "https://s3.amazonaws.com/...?X-Amz-Signature=..."   // optional
 }
 ```
 
-Reload the VS Code window (`Cmd+Shift+P` → Developer: Reload Window) after starting the container or changing config. The MCP connection is established at session start — a container restart requires a window reload.
+Response:
+```json
+{ "status": "ok", "build_id": "build-142-abc1234", "detail": "Upserted 1299 new, modified 0 files" }
+```
 
-## Example queries to ask Claude
+### `GET /health`
+
+```json
+{ "status": "ok" }
+```
+
+---
+
+## MongoDB schema
 
 ```
-Summarize the coverage report
-Which folders have the lowest coverage?
-What's the coverage for crates/router?
-Show me uncovered lines in crates/router/src/core/payments.rs
-List all files with less than 5% coverage in the connectors folder
-Which files have the most missed lines?
+Collection: builds
+  build_id, branch, commit, created_at, synced_at
+  line_covered, line_missed, line_total, line_pct
+  func_covered, func_missed, func_total, func_pct
+
+Collection: file_coverage
+  build_id, path
+  line_covered, line_missed, line_total, line_pct
+  uncovered_lines: [int]
+  func_covered, func_missed, func_total, func_pct
+  uncovered_funcs: [{name, start}]
+
+Indexes:
+  file_coverage: { build_id, path }         unique
+  file_coverage: { build_id, line_missed }
+  file_coverage: { build_id, func_missed }
+  builds:        { created_at }
 ```
+
+---
 
 ## File structure
 
 ```
-coverage-mcp-server/
-├── src/coverage_mcp/
-│   ├── server.py     # MCP server + tool handlers + ASGI SSE app
-│   ├── parser.py     # Tree-format JSON parser → CoverageReport dataclasses
-│   ├── fetcher.py    # File/directory resolver (single-file or multi-build)
-│   └── config.py     # Environment variable configuration
-├── keygen.py         # API key + hash generator
-├── Dockerfile        # Python 3.13-slim, uv, non-root appuser
-├── pyproject.toml
-└── .env.example
+quali-bot/
+├── docker-compose.yml
+├── .env.example
+├── sync/
+│   ├── sync.py        — HTTP server: POST /sync, GET /health
+│   ├── keygen.py      — API key generator for sync endpoint
+│   ├── requirements.txt
+│   └── Dockerfile
+└── coverage-mcp-server/
+    ├── src/coverage_mcp/
+    │   ├── server.py  — MCP tools + SSE ASGI app
+    │   ├── db.py      — MongoDB query layer
+    │   ├── parser.py  — local file parser (fallback mode)
+    │   ├── fetcher.py — local file reader (fallback mode)
+    │   └── config.py  — environment config
+    ├── keygen.py      — API key generator for MCP endpoint
+    ├── jenkins_pipeline_snippet.groovy
+    ├── Dockerfile
+    └── .env.example   — MCP server env vars
 ```
 
-## Notes
+---
 
-- Reports are cached in memory after first load. Restart the container to pick up a new coverage file.
-- The SSE transport uses a plain ASGI dispatch function (not Starlette routing) to be compatible with `starlette>=1.0.0` and `sse-starlette>=3.3.4`.
-- Auth uses `hmac.compare_digest` for constant-time comparison to prevent timing attacks.
+## Local dev (no MongoDB)
+
+The MCP server falls back to reading a local JSON file when `MONGO_URI` is not set:
+
+```bash
+cd coverage-mcp-server
+pip install -e .
+COVERAGE_FILE_PATH=~/Downloads/index.json MCP_TRANSPORT=stdio coverage-mcp-server
+```
+
+Line coverage only in this mode — no function data.
+
+---
+
+## Example queries
+
+```
+List available builds
+Summarize the latest build
+Which folders have the lowest function coverage?
+Get coverage for crates/router/src/core
+Show uncovered functions in crates/router/src/core/payments.rs
+List files with less than 5% coverage in the connectors folder
+Which files have the most missed lines?
+```

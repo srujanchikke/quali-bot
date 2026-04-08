@@ -1,0 +1,47 @@
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-secret}
+      MONGO_INITDB_DATABASE: coverage
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  sync:
+    build: ./sync
+    restart: unless-stopped
+    environment:
+      MONGO_URI: mongodb://${MONGO_USER:-admin}:${MONGO_PASSWORD:-secret}@mongo:27017
+      MONGO_DB: ${MONGO_DB:-coverage}
+      SYNC_API_KEY_HASH: ${SYNC_API_KEY_HASH}
+      SYNC_PORT: 8888
+    ports:
+      - "${SYNC_PORT:-8888}:8888"
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+  coverage-mcp:
+    build: ./coverage-mcp-server
+    restart: unless-stopped
+    environment:
+      MCP_TRANSPORT: sse
+      MCP_API_KEY_HASH: ${MCP_API_KEY_HASH}
+      MCP_PORT: 8080
+      MONGO_URI: mongodb://${MONGO_USER:-admin}:${MONGO_PASSWORD:-secret}@mongo:27017
+      MONGO_DB: ${MONGO_DB:-coverage}
+    ports:
+      - "${MCP_PORT:-9090}:8080"
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+volumes:
+  mongo_data:
