@@ -59,8 +59,36 @@ _llvm_cache: dict[str, LLVMCoverageReport] = {}
 def _load_report(tag: str) -> CoverageReport:
     if tag not in _report_cache:
         data = fetch_coverage_json(tag)
-        _report_cache[tag] = parse_json(data, tag)
+        if is_llvm_format(data):
+            _report_cache[tag] = _llvm_to_tree(parse_llvm_json(data, tag))
+        else:
+            _report_cache[tag] = parse_json(data, tag)
     return _report_cache[tag]
+
+
+def _llvm_to_tree(llvm: LLVMCoverageReport) -> CoverageReport:
+    """Adapt an LLVMCoverageReport into a CoverageReport for tree-format tool handlers."""
+    from .parser import LineStat, FileCoverage
+    totals = LineStat(
+        covered=llvm.lines.covered,
+        missed=llvm.lines.count - llvm.lines.covered,
+        total=llvm.lines.count,
+        percent=round(llvm.lines.percent, 2),
+    )
+    files = []
+    for f in llvm.files:
+        files.append(FileCoverage(
+            filename=f.filename,
+            lines=LineStat(
+                covered=f.lines.covered,
+                missed=f.lines.count - f.lines.covered,
+                total=f.lines.count,
+                percent=round(f.lines.percent, 2),
+            ),
+            uncovered_lines=[],  # not available in LLVM summary format
+        ))
+    from .parser import CoverageReport as CR
+    return CR(tag=llvm.tag, totals=totals, files=files)
 
 
 def _load_llvm_report(tag: str) -> LLVMCoverageReport:
