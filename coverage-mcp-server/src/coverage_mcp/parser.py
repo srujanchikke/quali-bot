@@ -1,30 +1,14 @@
 """
-Parse the custom coverage tree JSON format.
+Dispatch between two coverage JSON formats:
 
-Structure:
-  {
-    "name": "",
-    "coveragePercent": 8.08,
-    "linesCovered": 29080,
-    "linesMissed": 331018,
-    "linesTotal": 360098,
-    "children": {
-      "<dir>": {
-        "children": { ... },     # intermediate directory node
-        ...
-      },
-      "<file>.rs": {
-        "name": "file.rs",
-        "coveragePercent": 0.0,
-        "linesCovered": 0,
-        "linesMissed": 14,
-        "linesTotal": 14,
-        "coverage": [-1, 0, 0, ...]   # per-line: -1=not instrumented, 0=missed, >0=hit
-      }
-    }
-  }
+1. Custom tree format (linesCovered at root, children tree).
+   No function/region data.
 
-Note: no function-level data is available in this format.
+2. LLVM coverage JSON (data[0].files + data[0].functions + data[0].totals).
+   Has line, function, and region coverage.
+
+Use parse_json() for the tree format (existing tools).
+Use llvm_parser.parse_llvm_json() / llvm_parser.is_llvm_format() for LLVM format.
 """
 
 from dataclasses import dataclass, field

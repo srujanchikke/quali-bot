@@ -1,8 +1,5 @@
 FROM python:3.13-slim
 
-# Install uv for fast dependency resolution
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
-
 WORKDIR /app
 
 # Copy both pyproject.toml and source before installing (hatchling needs source)
@@ -10,7 +7,7 @@ COPY pyproject.toml .
 COPY src/ src/
 
 # Install the package
-RUN uv pip install --system --no-cache .
+RUN pip install --no-cache-dir .
 
 # Run as non-root
 RUN useradd -r -s /bin/false appuser
