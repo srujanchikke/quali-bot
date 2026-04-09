@@ -398,7 +398,7 @@ def _run_sse():
             # Return 404 for OAuth discovery paths without auth check.
             # This signals to MCP clients that OAuth is not supported,
             # causing them to fall back to Bearer token auth directly.
-            if path in _OAUTH_DISCOVERY_PATHS or path == "/register":
+            if any(path.startswith(p) for p in _OAUTH_DISCOVERY_PATHS) or path == "/register":
                 await _send_404(send)
                 return
 
