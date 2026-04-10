@@ -12,7 +12,6 @@ Deployment path (to be wired up):
 """
 
 import json
-import os
 from pathlib import Path
 
 from .config import config
@@ -22,7 +21,8 @@ def fetch_coverage_json(tag: str) -> dict:
     path = _resolve_path(tag)
     if not path.exists():
         raise FileNotFoundError(f"Coverage file not found: {path}")
-    return json.loads(path.read_text(encoding="utf-8"))
+    with path.open(encoding="utf-8") as f:
+        return json.load(f)
 
 
 def list_available_tags() -> list[str]:
